@@ -28,7 +28,7 @@ Tasa ponderada por monto nominal; se excluyen operaciones con tasa vacía o 0.
 `streamlit_app.py` reutiliza `mav_operados.py` (descarga, caché y la misma página) y solo
 reemplaza el selector de día por controles de Streamlit.
 
-1. En share.streamlit.io: **Create app** → repo `IgnacioGarcia01/mav-tasas`, rama `main`,
+1. En share.streamlit.io: **Create app** → repo `IgnacioGarcia01/MAV`, rama `main`,
    archivo `streamlit_app.py`.
 2. En **Settings → Secrets** pegar:
    ```toml
