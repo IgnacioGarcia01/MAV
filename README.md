@@ -39,4 +39,12 @@ reemplaza el selector de día por controles de Streamlit.
 3. Conviene dejar la app privada (Settings → Sharing): usa tus credenciales y el cupo de
    una llamada cada 300 s.
 
-La caché `mav_cache/` en la nube se pierde cuando la app se reinicia.
+La caché `mav_cache/` en la nube se pierde cuando la app se reinicia. Para que no se pierda,
+los días pasados se pueden guardar en un **repo privado** de GitHub (`github_cache.py`),
+comprimidos (~100 KB por día). Agregar en Secrets:
+```toml
+GITHUB_TOKEN = "github_pat_..."   # fine-grained, solo ese repo, Contents: Read and write
+GITHUB_DATA_REPO = "IgnacioGarcia01/MAV-datos"
+```
+La app se niega a escribir si el repo de datos es público. El día de hoy no se guarda ahí
+(todavía se opera).

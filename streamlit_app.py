@@ -10,6 +10,8 @@ en vez de pedirse al proxy local.
 Credenciales: st.secrets["MAV_USER"] y st.secrets["MAV_PASS"]
 (Settings → Secrets en Streamlit Cloud, o .streamlit/secrets.toml en local).
 Opcional: st.secrets["APP_PASSWORD"] pide una clave antes de mostrar el tablero.
+Opcional: GITHUB_TOKEN + GITHUB_DATA_REPO guardan los días pasados en un repo
+privado (ver github_cache.py), así no se pierden cuando Streamlit reinicia.
 """
 
 import json
@@ -26,6 +28,7 @@ if hasattr(time, "tzset"):
     time.tzset()
 
 import mav_operados as mav  # noqa: E402
+from github_cache import GitHubCache  # noqa: E402
 
 st.set_page_config(page_title="MAV · Tasas por plazo", layout="wide")
 
@@ -55,22 +58,57 @@ if not (mav.USER and mav.PASS):
     st.stop()
 
 
+@st.cache_resource(show_spinner=False)
+def github_cache():
+    """Caché permanente en un repo privado de GitHub; None si no está configurada."""
+    token, repo = secret("GITHUB_TOKEN"), secret("GITHUB_DATA_REPO")
+    if not (token and repo):
+        return None
+    gh = GitHubCache(token, repo, secret("GITHUB_DATA_BRANCH"))
+    gh.check_private()
+    return gh
+
+
+try:
+    gh = github_cache()
+except Exception as e:
+    st.warning("Caché en GitHub desactivada: %s" % e)
+    gh = None
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def github_days():
+    return gh.days() if gh else []
+
+
 @st.cache_data(show_spinner=False)
 def load_past_day(fecha_iso):
-    """Días pasados: no cambian, se guardan en memoria además de mav_cache/."""
+    """Días pasados: no cambian. Orden: GitHub → MAV (y se guarda en GitHub)."""
+    if gh:
+        text = gh.get(fecha_iso)
+        if text:
+            return mav.parse(text), "github"
+        # Un CSV local que no está en GitHub puede ser un "hoy" parcial de otro día: se vuelve a bajar.
+        local = mav.cache_path(date.fromisoformat(fecha_iso))
+        if os.path.exists(local):
+            os.remove(local)
     text, origen = mav.fetch_day(date.fromisoformat(fecha_iso))
+    if gh:
+        gh.put(fecha_iso, text)
+        github_days.clear()
     return mav.parse(text), origen
 
 
 def load(d, refrescar):
     if d < date.today():
         return load_past_day(d.isoformat())
+    # Hoy todavía se opera: queda solo en el disco de la app, no en GitHub.
     text, origen = mav.fetch_day(d, force=refrescar)
     return mav.parse(text), origen
 
 
 # --------------------------------------------------------------- selección día
-guardados = mav.cached_days()
+guardados = sorted(set(github_days()) | set(mav.cached_days()), reverse=True)
 c1, c2, c3 = st.columns([2, 1, 2])
 with c3:
     elegido = st.selectbox("Días guardados", ["—"] + guardados,
