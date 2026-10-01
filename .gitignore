@@ -1,0 +1,12 @@
+# Credenciales: NUNCA subir
+.env
+*.env
+!.env.example
+# Datos descargados del MAV (pueden incluir nombres de libradores)
+mav_cache/
+# Python
+__pycache__/
+*.pyc
+.venv/
+# Secrets de Streamlit (en la nube van en Settings -> Secrets)
+.streamlit/secrets.toml
