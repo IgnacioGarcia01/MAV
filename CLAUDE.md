@@ -40,6 +40,18 @@ Observaciones:
 - Plazo en días: mín 6, máx 1967 en la muestra.
 - Referencia para tests (30/09/2026, $, Avalado, Argenpymes S.G.R., ponderado): 25,67 / 25,50 / 26,49 / 27,96 / 31,32 / –
 
+## Streamlit (streamlit_app.py)
+- Pestaña **Resumen** (primera): `cpd-tasas-csv` vía `mav_tasas.py`, una llamada por día sin filtros
+  (se filtra en el cliente). Curvas de ECHEQ avalados $ y pagarés avalados U$S+U$D con ajuste
+  logarítmico sobre el promedio ponderado de cada tramo (1-30, 30-60, 60-90, 90-120, 120-180,
+  180-365, +365). Hoy se vuelve a pedir si la foto tiene más de 5 min.
+- Contadores de 300 s separados por endpoint (`_ultima_llamada.txt` y `_ultima_llamada_tasas.txt`);
+  si el MAV resulta compartir el límite por usuario, responde con el texto de intervalo y se muestra.
+- No verificado con datos reales: si los e-cheqs llegan como "ECHEQ" o "CPD" en Tipo Instr.
+  (si no hay ECHEQ se usan los CPD y se aclara en el gráfico).
+- Pestaña **Instrumentos operados**: la página PAGE de mav_operados.py, con botón Barras / Curva.
+- Días pasados en GitHub privado (`github_cache.py`): carpetas `mav_cache/` y `tasas_cache/`.
+
 ## Reglas
 - Nunca commitear credenciales. Se leen de `.env` (en .gitignore) o variables de entorno.
 - `mav_cache/` no se versiona.

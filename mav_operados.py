@@ -281,6 +281,7 @@ th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right}th:fi
 th{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .seg{display:flex;gap:6px}.seg button{background:var(--bg);color:var(--ink);border:1px solid var(--line);font-weight:500}.seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 footer{color:var(--muted);font-size:11.5px;margin-top:8px}
+.chead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.chead h2{margin:0}.vista button{width:auto;padding:5px 12px}
 </style></head><body>
 <header><h1>MAV · Instrumentos operados: tasa promedio por plazo</h1>
 <p>Rosental Inversiones / Research · Fuente: MAV, API Instrumentos Operados V3</p></header>
@@ -302,14 +303,14 @@ footer{color:var(--muted);font-size:11.5px;margin-top:8px}
   <div class="kpi"><span>Tasa promedio</span><b id="k_t">–</b></div>
   <div class="kpi"><span>Plazo promedio</span><b id="k_p">–</b></div>
 </div>
-<div class="card"><h2 id="ctitle">Tasa promedio por plazo</h2><div class="chartbox"><canvas id="chart"></canvas></div></div>
+<div class="card"><div class="chead"><h2 id="ctitle">Tasa promedio por plazo</h2><div class="seg vista"><button id="vbar" class="on">Barras</button><button id="vcur">Curva</button></div></div><div class="chartbox"><canvas id="chart"></canvas></div></div>
 <div class="card"><h2>Detalle por tramo</h2>
 <table><thead><tr><th>Plazo</th><th>Operaciones</th><th>Monto</th><th>Tasa pond.</th><th>Tasa simple</th><th>Mín</th><th>Máx</th></tr></thead><tbody id="tbody"></tbody></table>
 <footer>Tasas en TNA tal como las informa el MAV. El promedio ponderado usa el monto nominal. Se excluyen las operaciones sin tasa o con tasa 0 (p. ej. valor producto). Tramos: hasta 30 días, 31–60, 61–90, 91–180, 181–365 y más de 365.</footer></div>
 </main>
 <script>
 const BUCKETS=[["1-30 días",0,30],["30-60 días",30,60],["60-90 días",60,90],["90-180 días",90,180],["180-365 días",180,365],["+365 días",365,1e9]];
-let rows=[],weighted=true,chart=null;
+let rows=[],weighted=true,curva=false,chart=null;
 const $=id=>document.getElementById(id);
 const fmtPct=v=>v==null?"–":v.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";
 const fmtM=v=>{if(!v)return"–";const a=Math.abs(v);return a>=1e9?(v/1e9).toLocaleString("es-AR",{maximumFractionDigits:2})+" MM":a>=1e6?(v/1e6).toLocaleString("es-AR",{maximumFractionDigits:1})+" M":v.toLocaleString("es-AR",{maximumFractionDigits:0})};
@@ -344,7 +345,8 @@ function render(){
     const m=s.reduce((a,r)=>a+r.monto,0);
     const tp=m?s.reduce((a,r)=>a+r.tasa*r.monto,0)/m:null;
     const ts=s.length?s.reduce((a,r)=>a+r.tasa,0)/s.length:null;
-    return {lab,n:s.length,m,tp,ts,min:s.length?Math.min(...s.map(r=>r.tasa)):null,max:s.length?Math.max(...s.map(r=>r.tasa)):null};
+    const xp=m?s.reduce((a,r)=>a+r.plazo*r.monto,0)/m:null,xs=s.length?s.reduce((a,r)=>a+r.plazo,0)/s.length:null;
+    return {lab,n:s.length,m,tp,ts,xp,xs,min:s.length?Math.min(...s.map(r=>r.tasa)):null,max:s.length?Math.max(...s.map(r=>r.tasa)):null};
   });
   const M=d.reduce((a,r)=>a+r.monto,0);
   $("k_n").textContent=d.length.toLocaleString("es-AR");
@@ -362,7 +364,33 @@ function render(){
       scales:{x:{grid:{display:false},ticks:{color:muted}},y:{beginAtZero:true,grid:{color:line},ticks:{color:muted,callback:v=>v+"%"}}}},
     plugins:[{id:"lbl",afterDatasetsDraw(c){const ctx=c.ctx;ctx.save();ctx.fillStyle=ink;ctx.font="600 12px system-ui";ctx.textAlign="center";
       c.getDatasetMeta(0).data.forEach((b,i)=>{if(vals[i]!=null)ctx.fillText(fmtPct(vals[i]),b.x,b.y-6)});ctx.restore()}}]};
-  if(chart)chart.destroy();chart=new Chart($("chart"),cfg);
+  if(chart)chart.destroy();chart=new Chart($("chart"),curva?curveCfg(stats,vals):cfg);
+}
+function logFit(pts){ // tasa = a + b·ln(días), sobre los puntos de cada tramo
+  if(pts.length<2)return null;let n=pts.length,sx=0,sy=0,sxx=0,sxy=0;
+  pts.forEach(p=>{const l=Math.log(p.x);sx+=l;sy+=p.y;sxx+=l*l;sxy+=l*p.y});
+  const den=n*sxx-sx*sx;if(Math.abs(den)<1e-12)return null;
+  const b=(n*sxy-sx*sy)/den,a=(sy-b*sx)/n;return x=>a+b*Math.log(x);
+}
+function curveCfg(stats,vals){
+  const pts=stats.map((s,i)=>({x:weighted?s.xp:s.xs,y:vals[i],s})).filter(p=>p.y!=null&&p.x>0);
+  const f=logFit(pts),x0=pts.length?Math.min(...pts.map(p=>p.x)):0,x1=pts.length?Math.max(...pts.map(p=>p.x)):1;
+  const line=f?Array.from({length:80},(_,i)=>{const x=x0+(x1-x0)*i/79;return{x,y:f(x)}}):[];
+  const ys=pts.map(p=>p.y).concat(line.map(p=>p.y)),lo=Math.min(...ys),hi=Math.max(...ys),pad=Math.max(1,(hi-lo)*.25);
+  const ink=css("--ink"),muted=css("--muted"),grid=css("--line"),acc=css("--accent");
+  return {data:{datasets:[
+      {type:"line",data:line,borderColor:acc,borderWidth:2.5,pointRadius:0,order:2},
+      {type:"scatter",data:pts,backgroundColor:acc,borderColor:css("--card"),borderWidth:2,pointRadius:7,pointHoverRadius:9,order:1}]},
+    options:{maintainAspectRatio:false,animation:false,layout:{padding:{top:22,right:12}},
+      plugins:{legend:{display:false},tooltip:{filter:i=>i.datasetIndex===1,callbacks:{
+        title:c=>c[0].raw.s.lab,label:c=>"Tasa "+fmtPct(c.raw.y)+" · plazo prom. "+Math.round(c.raw.x)+" días",
+        afterLabel:c=>c.raw.s.n+" ops · "+fmtM(c.raw.s.m)}}},
+      scales:{x:{type:"linear",min:0,grid:{color:grid},ticks:{color:muted,callback:v=>v+" d"},title:{display:true,text:"Plazo (días)",color:muted}},
+        y:{suggestedMin:Math.floor(lo-pad),suggestedMax:Math.ceil(hi+pad),grid:{color:grid},ticks:{color:muted,callback:v=>v+"%"}}}},
+    plugins:[{id:"lbl",afterDatasetsDraw(c){const ctx=c.ctx;ctx.save();ctx.textAlign="center";
+      c.getDatasetMeta(1).data.forEach((p,i)=>{ctx.fillStyle=ink;ctx.font="600 12px system-ui";
+        // tramos cortos quedan juntos: etiquetas alternadas arriba / abajo
+        ctx.fillText(fmtPct(pts[i].y),p.x,i%2?p.y+22:p.y-12)});ctx.restore()}}]};
 }
 function onData(j){
   rows=j.filas;
@@ -392,6 +420,8 @@ $("cache").onchange=e=>{if(e.target.value){$("fecha").value=e.target.value;load(
 ["moneda","segmento","tipo"].forEach(id=>$(id).onchange=()=>{refreshResp();render()});
 $("resp").onchange=render;
 $("wpond").onclick=()=>{weighted=true;$("wpond").classList.add("on");$("wsimp").classList.remove("on");render()};
+$("vbar").onclick=()=>{curva=false;$("vbar").classList.add("on");$("vcur").classList.remove("on");render()};
+$("vcur").onclick=()=>{curva=true;$("vcur").classList.add("on");$("vbar").classList.remove("on");render()};
 $("wsimp").onclick=()=>{weighted=false;$("wsimp").classList.add("on");$("wpond").classList.remove("on");render()};
 estado().then(j=>{if(j.dias_cache.length)load(j.dias_cache[0]);else status("Elegí un día y tocá Consultar."+(j.espera?` (próxima llamada a la API disponible en ${j.espera} s)`:""))});
 </script></body></html>"""

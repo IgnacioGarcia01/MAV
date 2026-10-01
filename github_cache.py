@@ -2,7 +2,8 @@
 """
 Caché permanente de días del MAV en un repo de GitHub (API de contenidos, sin dependencias).
 
-Cada día se guarda comprimido como <carpeta>/AAAA-MM-DD.csv.gz. Se usa desde
+Cada día se guarda comprimido como <carpeta>/AAAA-MM-DD.csv.gz (mav_cache/ para
+Instrumentos Operados, tasas_cache/ para Consulta de Tasas). Se usa desde
 streamlit_app.py para que los días descargados no se pierdan cuando Streamlit
 reinicia la app. Configuración (st.secrets o variables de entorno):
 
@@ -22,8 +23,9 @@ FOLDER = "mav_cache"
 
 
 class GitHubCache:
-    def __init__(self, token, repo, branch="main"):
+    def __init__(self, token, repo, branch="main", folder=FOLDER):
         self.token, self.repo, self.branch = token, repo, branch or "main"
+        self.folder = folder
 
     def _req(self, method, path, body=None, accept="application/vnd.github+json"):
         req = urllib.request.Request(
@@ -45,7 +47,7 @@ class GitHubCache:
     def days(self):
         """Fechas guardadas (AAAA-MM-DD), más recientes primero."""
         try:
-            items = json.loads(self._req("GET", "/contents/%s?ref=%s" % (FOLDER, self.branch)))
+            items = json.loads(self._req("GET", "/contents/%s?ref=%s" % (self.folder, self.branch)))
         except urllib.error.HTTPError as e:
             if e.code == 404:  # carpeta todavía vacía
                 return []
@@ -56,7 +58,7 @@ class GitHubCache:
     def get(self, fecha_iso):
         """Texto CSV del día, o None si no está guardado."""
         try:
-            raw = self._req("GET", "/contents/%s/%s.csv.gz?ref=%s" % (FOLDER, fecha_iso, self.branch),
+            raw = self._req("GET", "/contents/%s/%s.csv.gz?ref=%s" % (self.folder, fecha_iso, self.branch),
                             accept="application/vnd.github.raw")
         except urllib.error.HTTPError as e:
             if e.code == 404:
@@ -69,7 +71,7 @@ class GitHubCache:
         body = {"message": "Día %s" % fecha_iso, "branch": self.branch,
                 "content": base64.b64encode(gzip.compress(text.encode("utf-8"))).decode()}
         try:
-            self._req("PUT", "/contents/%s/%s.csv.gz" % (FOLDER, fecha_iso), body)
+            self._req("PUT", "/contents/%s/%s.csv.gz" % (self.folder, fecha_iso), body)
         except urllib.error.HTTPError as e:
             if e.code not in (409, 422):
                 raise
