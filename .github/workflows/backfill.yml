@@ -30,8 +30,8 @@ jobs:
     # Programada: 1 día (≈1 min). Manual: hasta ~70 días dentro del máximo de 6 h de Actions.
     timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 355 || 8 }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Bajar días pendientes
