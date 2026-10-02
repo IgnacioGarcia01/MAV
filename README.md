@@ -65,3 +65,6 @@ desde el 02/01/2025 (5 min entre llamadas, del más reciente al más viejo) y lo
 `MAV_USER`, `MAV_PASS` y `DATA_TOKEN` (el token fine-grained de `MAV-datos`).
 El log solo muestra la fecha y la cantidad de filas (el repo es público).
 Corrida manual (Actions → Backfill MAV → Run workflow): baja N días seguidos, 5 min entre cada uno.
+Cuando ya no falta ningún día, **Backfill MAV se desactiva solo**. Desde ahí,
+**Cierre diario MAV** (`.github/workflows/cierre_diario.yml`) guarda a las 20 h de cada día
+hábil el informe final del día (y completa hasta 2 días que hayan quedado pendientes).

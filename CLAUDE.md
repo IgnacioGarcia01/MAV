@@ -73,6 +73,12 @@ Observaciones:
   pero GitHub saltea crons tan frecuentes); día vacío (feriado) se guarda como "" para no
   repedirlo; 1 de cada 4 corridas rota entre pendientes para que un día con error no trabe el resto.
 
+- Carga inicial (backfill.yml) se autodesactiva con `gh workflow disable` cuando backfill.py deja
+  completo=true. Si algún día de 2025 da error siempre (p. ej. el MAV no guarda historia tan vieja),
+  nunca queda "completo": habría que subir BACKFILL_DESDE o desactivarla a mano.
+- cierre_diario.yml: 20:00 ART lun-vie, BACKFILL_INCLUIR_HOY=1, comparte concurrency con backfill.
+  La app abre "hoy" desde GitHub cuando ya está el cierre.
+
 ## Reglas
 - Nunca commitear credenciales. Se leen de `.env` (en .gitignore) o variables de entorno.
 - `mav_cache/` no se versiona.

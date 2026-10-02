@@ -2,17 +2,20 @@
 """
 Backfill de Instrumentos Operados en el repo privado de datos (MAV-datos).
 
-Cada ejecución hace UNA sola llamada al MAV (la API exige 300 s entre llamadas):
-busca un día hábil de DESDE a ayer que todavía no esté en GitHub, lo baja y lo
-guarda en mav_cache/AAAA-MM-DD.csv.gz. Lo corre GitHub Actions cada 5 minutos
-(.github/workflows/backfill.yml); también se puede correr a mano:
+Busca días hábiles de DESDE a ayer (o a hoy, con BACKFILL_INCLUIR_HOY=1) que todavía
+no estén en GitHub, los baja del más reciente al más viejo (5 min entre llamadas: la
+API exige 300 s) y los guarda en mav_cache/AAAA-MM-DD.csv.gz. Lo corre GitHub Actions:
+.github/workflows/backfill.yml (carga inicial, se apaga sola al completar) y
+.github/workflows/cierre_diario.yml (20 h de cada día hábil). También a mano:
 
     set MAV_USER=... & set MAV_PASS=... & set GITHUB_TOKEN=... & python backfill.py
 
 Variables: MAV_USER, MAV_PASS, GITHUB_TOKEN (Contents: Read and write sobre el repo
 de datos), GITHUB_DATA_REPO (por defecto IgnacioGarcia01/MAV-datos), BACKFILL_DESDE
-(por defecto 2026-01-02) y BACKFILL_DIAS (por defecto 1: días a bajar en esta corrida,
-con 5 minutos entre llamadas; lo usa la corrida manual desde Actions). No imprime datos de operaciones: solo fecha y cantidad de filas.
+(por defecto 2026-01-02), BACKFILL_DIAS (por defecto 1: días a bajar en esta corrida)
+y BACKFILL_INCLUIR_HOY (1 = también el día de hoy, para el cierre de las 20 h).
+No imprime datos de operaciones: solo fecha y cantidad de filas. En Actions deja
+completo=true en GITHUB_OUTPUT cuando no falta ningún día.
 """
 
 import os
@@ -76,12 +79,20 @@ def main():
     desde = date.fromisoformat(os.environ.get("BACKFILL_DESDE") or "2026-01-02")
     # BACKFILL_DIAS > 1 (corrida manual): varios días seguidos, esperando el intervalo del MAV.
     cuantos = max(1, int(os.environ.get("BACKFILL_DIAS") or 1))
+    hasta = hoy_ar() if os.environ.get("BACKFILL_INCLUIR_HOY") == "1" else hoy_ar() - timedelta(days=1)
     fallidos = set()
     for i in range(cuantos):
-        faltan = [d for d in pendientes(set(gh.days()), desde, hoy_ar() - timedelta(days=1))
-                  if d not in fallidos]
-        if not faltan:
+        pend = pendientes(set(gh.days()), desde, hasta)
+        if not pend:
             print("Backfill completo: no faltan días desde %s." % desde)
+            salida = os.environ.get("GITHUB_OUTPUT")
+            if salida:
+                with open(salida, "a") as f:
+                    f.write("completo=true\n")
+            return 0
+        faltan = [d for d in pend if d not in fallidos]
+        if not faltan:
+            print("Quedan %d días que dieron error en esta corrida; se reintentan en la próxima." % len(pend))
             return 0
         if cuantos == 1:
             # Corrida programada: se rota entre los pendientes según la franja de 5 minutos,

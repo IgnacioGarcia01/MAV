@@ -243,7 +243,8 @@ def load_past_day(fecha_iso):
 
 
 def load(d, refrescar):
-    if d < date.today():
+    # Días pasados, y hoy cuando el cierre de las 20 h ya quedó guardado en GitHub.
+    if d < date.today() or (d.isoformat() in github_days() and not refrescar):
         try:
             filas, origen, err = load_past_day(d.isoformat())
         except RuntimeError as e:
@@ -273,8 +274,9 @@ MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto
 VERDE = "#1d7a5c"
 
 
-def calendario(guardados, elegido):
-    """Calendario mensual: verde = día guardado; borde verde = parcial de hoy; contorno = elegido."""
+def calendario(guardados, definitivos, elegido):
+    """Calendario mensual: verde = día guardado (definitivo); borde verde = parcial de hoy;
+    contorno = elegido."""
     hoy = date.today()
     if "cal_mes" not in st.session_state:
         st.session_state.cal_mes = (elegido.year, elegido.month)
@@ -309,7 +311,7 @@ def calendario(guardados, elegido):
                 col.button(str(d.day), key="cal_" + iso, on_click=elegir, args=(iso,),
                            use_container_width=True, disabled=d > hoy or d.weekday() >= 5)
                 sel_css = ".st-key-cal_%s button" % iso
-                if iso in guardados and d < hoy:
+                if iso in definitivos or (iso in guardados and d < hoy):
                     css.append("%s{background:%s;color:#fff;border-color:%s}" % (sel_css, VERDE, VERDE))
                 elif iso in guardados:
                     css.append("%s{border:2px solid %s}" % (sel_css, VERDE))
@@ -321,7 +323,8 @@ def calendario(guardados, elegido):
 def tab_operados():
     hoy = date.today()
     restaurar_parcial(gh, hoy, mav.cache_path(hoy))
-    guardados = set(github_days()) | set(mav.cached_days())
+    definitivos = set(github_days())
+    guardados = definitivos | set(mav.cached_days())
     if "dia_op" not in st.session_state:
         pasados = sorted(g for g in guardados if g < hoy.isoformat())
         st.session_state.dia_op = pasados[-1] if pasados else hoy.isoformat()
@@ -329,15 +332,17 @@ def tab_operados():
 
     c_cal, c_info = st.columns([1.2, 2], gap="large")
     with c_cal:
-        calendario(guardados, fecha)
+        calendario(guardados, definitivos, fecha)
     with c_info:
         st.markdown("#### %s %d de %s de %d" % (["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado",
                                                    "Domingo"][fecha.weekday()], fecha.day, MESES[fecha.month - 1],
                                                   fecha.year))
         guardado = fecha.isoformat() in guardados
         en_2026 = sorted(g for g in guardados if g.startswith("2026") and g < hoy.isoformat())
-        if fecha == hoy:
-            st.caption("Día en curso: los datos se guardan como parcial y se completan al cierre.")
+        if fecha == hoy and fecha.isoformat() in definitivos:
+            st.caption("Cierre del día guardado en GitHub (se guarda a las 20 h).")
+        elif fecha == hoy:
+            st.caption("Día en curso: se guarda como parcial; el cierre definitivo se guarda a las 20 h.")
         elif guardado:
             st.caption("Guardado en GitHub: se abre sin llamar al MAV.")
         else:

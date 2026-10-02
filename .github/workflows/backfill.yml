@@ -1,7 +1,8 @@
 # Completa los días de 2025 y 2026 de Instrumentos Operados en el repo privado MAV-datos,
 # del más reciente al más viejo. Una corrida por hora que baja hasta 11 días seguidos con
 # 5 minutos entre llamadas (la API exige 300 s); las corridas horarias de GitHub son más
-# confiables que las de cada 5 minutos. Si no falta nada, termina en segundos.
+# confiables que las de cada 5 minutos. Cuando no falta ningún día, se desactiva sola:
+# desde ahí el día a día lo guarda cierre_diario.yml (20 h, días hábiles).
 # Corre fuera del horario de mercado para no chocar con las consultas desde la app:
 # lun-vie de 18 a 9 h (hora argentina) y todo el día sábado y domingo.
 # Secrets necesarios (Settings → Secrets and variables → Actions):
@@ -21,6 +22,7 @@ on:
 
 permissions:
   contents: read
+  actions: write   # para desactivar este workflow cuando la carga inicial termina
 
 concurrency:
   group: backfill-mav
@@ -37,6 +39,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Bajar días pendientes
+        id: bf
         env:
           MAV_USER: ${{ secrets.MAV_USER }}
           MAV_PASS: ${{ secrets.MAV_PASS }}
@@ -45,3 +48,8 @@ jobs:
           BACKFILL_DESDE: "2025-01-02"
           BACKFILL_DIAS: ${{ github.event.inputs.dias || '11' }}
         run: python backfill.py
+      - name: Desactivar la carga inicial (ya no faltan días)
+        if: steps.bf.outputs.completo == 'true' && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow disable backfill.yml --repo "$GITHUB_REPOSITORY"
