@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-MAV · Tasas, versión Streamlit Cloud. Dos pestañas:
+MAV · Tasas, versión Streamlit Cloud. Tres pestañas:
 
-- Resumen: API Consulta de Tasas (mav_tasas.py). Curvas de ECHEQ avalados en pesos
-  y pagarés avalados en dólares, y recuadros de volumen. Por defecto, el día de hoy.
-- Instrumentos operados: reutiliza mav_operados.py tal cual (descarga, caché, parseo
-  y la misma página HTML); el día se elige con controles de Streamlit y los datos se
-  inyectan en la página en vez de pedirse al proxy local.
+- Resumen: solo el día de hoy, API Consulta de Tasas (mav_tasas.py). Curvas de ECHEQ
+  avalados en pesos y pagarés avalados en dólares, y recuadros de volumen.
+- Instrumentos operados: reutiliza mav_operados.py (descarga, caché, parseo y la misma
+  página HTML, con comparación de SGR). El día se elige en un calendario que pinta de
+  verde los días guardados; los datos se inyectan en la página.
+- Análisis histórico: series de tasa por tramo o por SGR sobre los días de Instrumentos
+  Operados guardados en GitHub (mav_historico.py). backfill.py los completa solo.
 
 Credenciales: st.secrets["MAV_USER"] y st.secrets["MAV_PASS"]
 (Settings → Secrets en Streamlit Cloud, o .streamlit/secrets.toml en local).
@@ -15,11 +17,14 @@ Opcional: GITHUB_TOKEN + GITHUB_DATA_REPO guardan los días pasados en un repo
 privado (ver github_cache.py), así no se pierden cuando Streamlit reinicia.
 """
 
+import calendar as cal
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -29,6 +34,7 @@ if hasattr(time, "tzset"):
     time.tzset()
 
 import mav_operados as mav  # noqa: E402
+import mav_historico as mh  # noqa: E402
 import mav_tasas as mt  # noqa: E402
 from github_cache import GitHubCache  # noqa: E402
 
@@ -169,39 +175,6 @@ def parcial_de_respaldo(cache, fecha_iso, error):
 
 
 # ====================================================================== Resumen
-@st.cache_data(show_spinner=False)
-def tasas_dia_pasado(fecha_iso):
-    """Días pasados: GitHub → archivo local bajado después de ese día → MAV.
-    Devuelve (filas, error_al_guardar)."""
-    d = date.fromisoformat(fecha_iso)
-    if gh_tasas:
-        text = gh_tasas.get(fecha_iso)
-        if text is not None:
-            return mt.parse(text), None
-    path = mt.snapshot_path(d)
-    # Un archivo bajado ese mismo día es parcial (se seguía operando): no sirve.
-    if os.path.exists(path) and datetime.fromtimestamp(os.path.getmtime(path)).date() > d:
-        with open(path, encoding="utf-8") as f:
-            text = f.read()
-    else:
-        text = mt.fetch(d)
-        os.makedirs(mav.CACHE_DIR, exist_ok=True)
-        with open(path, "w", encoding="utf-8", newline="") as f:
-            f.write(text)
-    return mt.parse(text), guardar_definitivo(gh_tasas, fecha_iso, text) if gh_tasas else None
-
-
-def tasas_pasado(fecha_iso):
-    try:
-        filas, err = tasas_dia_pasado(fecha_iso)
-    except RuntimeError as e:
-        return mt.parse(parcial_de_respaldo(gh_tasas, fecha_iso, e)), "foto parcial del día"
-    if err:
-        tasas_dia_pasado.clear(fecha_iso)  # se reintenta guardar en la próxima consulta
-        avisar_github("guardar el día", err)
-    return filas, "día cerrado"
-
-
 def tasas_hoy(forzar):
     """Hoy: se vuelve a pedir al MAV si la última foto tiene más de 5 minutos."""
     d = date.today()
@@ -227,31 +200,22 @@ def tasas_hoy(forzar):
 
 
 def tab_resumen():
-    c1, c2, _ = st.columns([2, 1, 3])
+    """Solo el día de hoy. El histórico está en la pestaña Análisis histórico."""
+    c1, _ = st.columns([1, 5])
     with c1:
-        fecha = st.date_input("Día", value=date.today(), max_value=date.today(),
-                              format="DD/MM/YYYY", key="fecha_resumen")
-    es_hoy = fecha == date.today()
-    with c2:
-        st.write("")
-        actualizar = st.button("Actualizar", use_container_width=True, disabled=not es_hoy,
+        actualizar = st.button("Actualizar", use_container_width=True,
                                help="Vuelve a pedir los datos de hoy al MAV (máx. una vez cada 5 min).")
-    aviso = None
     try:
-        with st.spinner("Consultando tasas del %s…" % fecha.strftime("%d/%m/%Y")):
-            if es_hoy:
-                filas, nota, aviso = tasas_hoy(actualizar)
-            else:
-                filas, nota = tasas_pasado(fecha.isoformat())
+        with st.spinner("Consultando las tasas de hoy…"):
+            filas, nota, aviso = tasas_hoy(actualizar)
     except RuntimeError as e:
         st.error(str(e))
         return
     if aviso:
         st.caption("No se pudo actualizar: %s" % aviso)
     if not filas:
-        st.info("El MAV no informa operaciones para el %s." % fecha.strftime("%d/%m/%Y")
-                + (" Si el mercado todavía no abrió, probá más tarde o elegí un día anterior." if es_hoy else ""))
-    render_page(mt.PAGE, {"fecha": fecha.isoformat(), "nota": nota, "filas": filas}, 1150)
+        st.info("Todavía no hay operaciones hoy. Si el mercado no abrió, probá más tarde.")
+    render_page(mt.PAGE, {"fecha": date.today().isoformat(), "nota": nota, "filas": filas}, 1150)
 
 
 # ======================================================== Instrumentos operados
@@ -266,7 +230,7 @@ def load_past_day(fecha_iso):
     Devuelve (filas, origen, error_al_guardar)."""
     if gh:
         text = gh.get(fecha_iso)
-        if text:
+        if text is not None:  # "" = día sin operaciones (feriado), guardado por el backfill
             return mav.parse(text), "github", None
         # Un CSV local que no está en GitHub puede ser un "hoy" parcial de otro día: se vuelve a bajar.
         local = mav.cache_path(date.fromisoformat(fecha_iso))
@@ -304,38 +268,202 @@ PAGE_OPERADOS = (mav.PAGE
                  .replace("</style>", ".filters>div:nth-child(-n+3){display:none}</style>", 1)
                  .replace(INIT_JS, "onData(__DATA__);", 1))
 
+MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+         "septiembre", "octubre", "noviembre", "diciembre"]
+VERDE = "#1d7a5c"
+
+
+def calendario(guardados, elegido):
+    """Calendario mensual: verde = día guardado; borde verde = parcial de hoy; contorno = elegido."""
+    hoy = date.today()
+    if "cal_mes" not in st.session_state:
+        st.session_state.cal_mes = (elegido.year, elegido.month)
+    y, m = st.session_state.cal_mes
+
+    def mover(delta):
+        yy, mm = divmod(y * 12 + m - 1 + delta, 12)
+        st.session_state.cal_mes = (yy, mm + 1)
+
+    def elegir(iso):
+        st.session_state.dia_op = iso
+
+    css = [".st-key-calendario button{padding:0;min-height:34px;font-variant-numeric:tabular-nums}",
+           ".st-key-calendario p{margin:0}"]
+    with st.container(key="calendario"):
+        a, b, c = st.columns([1, 4, 1], vertical_alignment="center")
+        a.button("‹", key="cal_prev", on_click=mover, args=(-1,), use_container_width=True)
+        b.markdown("<div style='text-align:center;font-weight:600'>%s %d</div>" % (MESES[m - 1].capitalize(), y),
+                   unsafe_allow_html=True)
+        c.button("›", key="cal_next", on_click=mover, args=(1,), use_container_width=True,
+                 disabled=(y, m) >= (hoy.year, hoy.month))
+        cols = st.columns(7)
+        for col, dia in zip(cols, ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]):
+            col.markdown("<div style='text-align:center;font-size:12px;opacity:.6'>%s</div>" % dia,
+                         unsafe_allow_html=True)
+        for semana in cal.Calendar().monthdatescalendar(y, m):
+            cols = st.columns(7)
+            for col, d in zip(cols, semana):
+                if d.month != m:
+                    continue
+                iso = d.isoformat()
+                col.button(str(d.day), key="cal_" + iso, on_click=elegir, args=(iso,),
+                           use_container_width=True, disabled=d > hoy or d.weekday() >= 5)
+                sel_css = ".st-key-cal_%s button" % iso
+                if iso in guardados and d < hoy:
+                    css.append("%s{background:%s;color:#fff;border-color:%s}" % (sel_css, VERDE, VERDE))
+                elif iso in guardados:
+                    css.append("%s{border:2px solid %s}" % (sel_css, VERDE))
+                if d == elegido:
+                    css.append("%s{outline:2px solid currentColor;outline-offset:2px;font-weight:700}" % sel_css)
+    st.html("<style>%s</style>" % "".join(css))
+
 
 def tab_operados():
-    restaurar_parcial(gh, date.today(), mav.cache_path(date.today()))
-    guardados = sorted(set(github_days()) | set(mav.cached_days()), reverse=True)
-    c1, c2, c3 = st.columns([2, 1, 2])
-    with c3:
-        elegido = st.selectbox("Días guardados", ["—"] + guardados,
-                               format_func=lambda s: s if s == "—" else fmt_fecha(s))
-    default = date.fromisoformat(elegido) if elegido != "—" else (
-        date.fromisoformat(guardados[0]) if guardados else date.today())
-    with c1:
-        fecha = st.date_input("Día", value=default, max_value=date.today(), format="DD/MM/YYYY")
-    with c2:
-        st.write("")
-        consultar = st.button("Consultar", type="primary", use_container_width=True)
+    hoy = date.today()
+    restaurar_parcial(gh, hoy, mav.cache_path(hoy))
+    guardados = set(github_days()) | set(mav.cached_days())
+    if "dia_op" not in st.session_state:
+        pasados = sorted(g for g in guardados if g < hoy.isoformat())
+        st.session_state.dia_op = pasados[-1] if pasados else hoy.isoformat()
+    fecha = date.fromisoformat(st.session_state.dia_op)
 
-    if not (consultar or fecha.isoformat() in guardados):
+    c_cal, c_info = st.columns([1.2, 2], gap="large")
+    with c_cal:
+        calendario(guardados, fecha)
+    with c_info:
+        st.markdown("#### %s %d de %s de %d" % (["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado",
+                                                   "Domingo"][fecha.weekday()], fecha.day, MESES[fecha.month - 1],
+                                                  fecha.year))
+        guardado = fecha.isoformat() in guardados
+        en_2026 = sorted(g for g in guardados if g.startswith("2026") and g < hoy.isoformat())
+        if fecha == hoy:
+            st.caption("Día en curso: los datos se guardan como parcial y se completan al cierre.")
+        elif guardado:
+            st.caption("Guardado en GitHub: se abre sin llamar al MAV.")
+        else:
+            st.caption("Todavía no está guardado: hay que pedirlo al MAV (una consulta cada 5 minutos).")
+        consultar = (not guardado or fecha == hoy) and st.button("Consultar al MAV", type="primary")
+        st.markdown(
+            "<div style='font-size:12.5px;opacity:.75;margin-top:8px'>"
+            "<span style='display:inline-block;width:11px;height:11px;border-radius:3px;background:%s;"
+            "vertical-align:-1px'></span> guardado &nbsp; "
+            "<span style='display:inline-block;width:11px;height:11px;border-radius:3px;border:2px solid %s;"
+            "vertical-align:-1px'></span> parcial de hoy<br>%d días hábiles de 2026 guardados.</div>"
+            % (VERDE, VERDE, len(en_2026)), unsafe_allow_html=True)
+
+    if not (consultar or guardado):
         espera = max(0, mav.MIN_INTERVAL - (time.time() - mav.last_call_ts()))
-        st.info("Elegí un día y tocá Consultar."
+        st.info("Elegí un día en el calendario y tocá Consultar al MAV."
                 + (f" (próxima llamada a la API disponible en {int(espera)} s)" if espera else ""))
         return
     try:
         with st.spinner(f"Consultando {fecha:%d/%m/%Y}… (la API puede tardar)"):
-            filas, origen = load(fecha, refrescar=consultar and fecha == date.today())
+            filas, origen = load(fecha, refrescar=consultar and fecha == hoy)
     except RuntimeError as e:
         st.error(str(e))
         return
-    render_page(PAGE_OPERADOS, {"fecha": fecha.isoformat(), "origen": origen, "filas": filas}, 1250)
+    if consultar:
+        github_days.clear()
+    render_page(PAGE_OPERADOS, {"fecha": fecha.isoformat(), "origen": origen, "filas": filas}, 1350)
 
 
-resumen, operados = st.tabs(["Resumen", "Instrumentos operados"])
+# ============================================================ Análisis histórico
+@st.cache_resource
+def _dias_agregados():
+    return {}  # fecha → DataFrame agregado (los días cerrados no cambian)
+
+
+def cargar_historico(dias):
+    memo = _dias_agregados()
+    faltan = [d for d in dias if d not in memo]
+    if faltan:
+        def bajar(d):
+            return d, mh.agregar_dia(d, gh.get(d) or "")
+        with st.spinner("Cargando %d días guardados desde GitHub…" % len(faltan)):
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                for d, df in ex.map(bajar, faltan):
+                    memo[d] = df
+    partes = [memo[d] for d in dias if not memo[d].empty]
+    return pd.concat(partes, ignore_index=True) if partes else pd.DataFrame()
+
+
+def tab_historico():
+    if not gh:
+        st.info("El análisis histórico usa los días guardados en GitHub: falta configurar "
+                "GITHUB_TOKEN y GITHUB_DATA_REPO en los secrets.")
+        return
+    dias = sorted(d for d in github_days() if d < date.today().isoformat())
+    if not dias:
+        st.info("Todavía no hay días guardados.")
+        return
+    primero, ultimo = date.fromisoformat(dias[0]), date.fromisoformat(dias[-1])
+
+    f1, f2, f3, f4 = st.columns([2, 1.3, 1, 1])
+    rango = f1.date_input("Período", value=(primero, ultimo), min_value=primero, max_value=ultimo,
+                          format="DD/MM/YYYY", key="h_rango")
+    desde, hasta = (rango if isinstance(rango, (tuple, list)) and len(rango) == 2 else (primero, ultimo))
+    elegidos = [d for d in dias if desde.isoformat() <= d <= hasta.isoformat()]
+    df = cargar_historico(elegidos)
+    if df.empty:
+        st.info("No hay operaciones en el período elegido.")
+        return
+
+    def opciones(col, grupos):
+        return [""] + list(grupos) + sorted(df[col].dropna().unique())
+
+    def idx(lista, valor):
+        return lista.index(valor) if valor in lista else 0
+
+    o_tipo = opciones("tipo", mh.GRUPOS_TIPO)
+    o_mon = opciones("moneda", mh.GRUPOS_MONEDA)
+    o_seg = [""] + sorted(df["segmento"].dropna().unique())
+    todos = lambda v: v or "Todos"  # noqa: E731
+    tipo = f2.selectbox("Instrumento", o_tipo, index=idx(o_tipo, "Cheques (ECHEQ + CPD)"), format_func=todos, key="h_tipo")
+    moneda = f3.selectbox("Moneda", o_mon, index=idx(o_mon, "$"), format_func=lambda v: v or "Todas", key="h_mon")
+    segmento = f4.selectbox("Segmento", o_seg, index=idx(o_seg, "Avalado"), format_func=todos, key="h_seg")
+    base = mh.filtrar(df, tipo, moneda, segmento)
+
+    g1, g2, g3, g4 = st.columns([1.1, 2.6, 2.2, 1.1])
+    por = g1.radio("Comparar por", ["Tramo", "SGR"], horizontal=True, key="h_por")
+    ranking = base.groupby("responsable")["monto"].sum().sort_values(ascending=False)
+    sgrs = g2.multiselect("SGR / Responsable (hasta 8)", list(ranking.index), max_selections=8, key="h_sgr",
+                          format_func=lambda s: s or "(sin responsable)",
+                          placeholder="Todas" if por == "Tramo" else "Elegí SGR para comparar")
+    tramos = g3.multiselect("Tramos", list(range(len(mh.TRAMOS))), default=list(range(len(mh.TRAMOS))),
+                            format_func=lambda i: mh.TRAMOS[i], key="h_tramos")
+    ponderado = g4.radio("Promedio", ["Ponderado", "Simple"], key="h_prom") == "Ponderado"
+    incluir_total = por == "SGR" and st.checkbox("Incluir total del filtro", value=True, key="h_total")
+    if not tramos:
+        st.info("Elegí al menos un tramo.")
+        return
+
+    fechas = sorted(base["fecha"].unique())
+    ser = mh.series(base, fechas, por, ponderado, sgrs, tramos, incluir_total)
+    for i, s in enumerate(ser):  # color fijo: por tramo según el tramo, por SGR según el orden elegido
+        s["slot"] = tramos[i] if por == "Tramo" else (i - (1 if incluir_total or not sgrs else 0))
+    vol_base = base[base["tramo"].isin(tramos)]
+    if sgrs:
+        vol_base = vol_base[vol_base["responsable"].isin(sgrs)]
+    vol = vol_base.groupby("fecha")["monto"].sum()
+
+    filtro = " · ".join(x for x in [tipo or "Todos los instrumentos", moneda or "todas las monedas",
+                                    segmento or "todos los segmentos"])
+    titulo = "Tasa promedio %s por %s" % ("ponderada" if ponderado else "simple",
+                                          "tramo" if por == "Tramo" else "SGR")
+    sub = filtro + (" · " + ", ".join(s or "(sin responsable)" for s in sgrs) if por == "Tramo" and sgrs else "")
+    if por == "SGR":
+        sub += " · tramos: " + (", ".join(mh.TRAMOS[i] for i in tramos)
+                                if len(tramos) < len(mh.TRAMOS) else "todos")
+    st.caption("%d días con datos entre el %s y el %s." % (len(fechas), fmt_fecha(fechas[0]), fmt_fecha(fechas[-1]))
+               if fechas else "Sin datos para estos filtros.")
+    render_page(mh.PAGE, {"fechas": fechas, "series": ser, "titulo": titulo, "subtitulo": sub,
+                          "volumen": [float(vol.get(f, 0.0)) for f in fechas]}, 1080)
+
+
+resumen, operados, historico = st.tabs(["Resumen", "Instrumentos operados", "Análisis histórico"])
 with resumen:
     tab_resumen()
 with operados:
     tab_operados()
+with historico:
+    tab_historico()

@@ -261,8 +261,10 @@ PAGE = r"""<!doctype html>
 <title>MAV · Tasas por plazo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--accent:#1f4e8c;--accent2:#9db7da;--err:#a3271f}
-@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--accent:#6fa0e0;--accent2:#33507a;--err:#ff8a80}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--accent:#1f4e8c;--accent2:#9db7da;--err:#a3271f;--total:#8a919c;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948}
+@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--accent:#6fa0e0;--accent2:#33507a;--err:#ff8a80;--total:#7d848e;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 header{padding:18px 24px 6px}h1{font-size:19px;margin:0}header p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
 main{padding:12px 24px 32px;max-width:1200px}
@@ -275,13 +277,32 @@ button{background:var(--accent);color:#fff;border:0;cursor:pointer;font-weight:6
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:6px 0 12px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}.kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums}.kpi span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px}
-.card h2{font-size:14px;margin:0 0 10px}.chartbox{position:relative;height:340px}
+.card h2{font-size:14px;margin:0 0 10px}.chartbox{position:relative;height:360px}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px}
 th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}
 th{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+td small{color:var(--muted);font-size:11.5px}
 .seg{display:flex;gap:6px}.seg button{background:var(--bg);color:var(--ink);border:1px solid var(--line);font-weight:500}.seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 footer{color:var(--muted);font-size:11.5px;margin-top:8px}
 .chead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.chead h2{margin:0}.vista button{width:auto;padding:5px 12px}
+.tablewrap{overflow-x:auto}
+/* selector múltiple de SGR */
+.ms{position:relative}
+.msbtn{background:var(--bg);color:var(--ink);border:1px solid var(--line);font-weight:500;text-align:left;display:flex;justify-content:space-between}
+.msbtn::after{content:"▾";color:var(--muted)}
+.mspanel{position:absolute;z-index:10;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:8px}
+.msacts{display:flex;justify-content:space-between;align-items:center;margin:6px 2px;font-size:12.5px;color:var(--muted)}
+.msacts a{color:var(--accent);cursor:pointer}
+.mslist{max-height:260px;overflow:auto}
+.mslist label{display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);margin:0;padding:5px 4px;border-radius:5px;cursor:pointer}
+.mslist label:hover{background:var(--bg)}.mslist label.off{opacity:.45;cursor:default}
+.mslist input{width:auto;margin:0}.mslist .m{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 8px;font-size:12px;background:var(--bg)}
+.chip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.chip button{width:auto;padding:0 6px;background:none;color:var(--muted);font-weight:400}
+.inc{display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--muted);margin:0}.inc input{width:auto}
+[hidden]{display:none!important}
 </style></head><body>
 <header><h1>MAV · Instrumentos operados: tasa promedio por plazo</h1>
 <p>Rosental Inversiones / Research · Fuente: MAV, API Instrumentos Operados V3</p></header>
@@ -293,7 +314,15 @@ footer{color:var(--muted);font-size:11.5px;margin-top:8px}
   <div><label>Moneda</label><select id="moneda"></select></div>
   <div><label>Segmento</label><select id="segmento"></select></div>
   <div><label>Instrumento</label><select id="tipo"></select></div>
-  <div class="wide"><label>SGR / Responsable</label><select id="resp"></select></div>
+  <div class="wide"><label>SGR / Responsable · comparar hasta 8</label>
+    <div class="ms"><button type="button" id="msbtn" class="msbtn">Todos</button>
+      <div class="mspanel" id="mspanel" hidden>
+        <input id="msq" placeholder="Buscar SGR / responsable…" autocomplete="off">
+        <div class="msacts"><a id="msclear">Limpiar selección</a><span id="mscount"></span></div>
+        <div class="mslist" id="mslist"></div>
+      </div></div>
+    <div class="chips" id="chips"></div>
+  </div>
   <div><label>Promedio</label><div class="seg"><button id="wpond" class="on">Ponderado</button><button id="wsimp">Simple</button></div></div>
 </div>
 <div class="status" id="status"></div>
@@ -303,44 +332,72 @@ footer{color:var(--muted);font-size:11.5px;margin-top:8px}
   <div class="kpi"><span>Tasa promedio</span><b id="k_t">–</b></div>
   <div class="kpi"><span>Plazo promedio</span><b id="k_p">–</b></div>
 </div>
-<div class="card"><div class="chead"><h2 id="ctitle">Tasa promedio por plazo</h2><div class="seg vista"><button id="vbar" class="on">Barras</button><button id="vcur">Curva</button></div></div><div class="chartbox"><canvas id="chart"></canvas></div></div>
+<div class="card"><div class="chead"><h2 id="ctitle">Tasa promedio por plazo</h2>
+  <div style="display:flex;gap:14px;align-items:center"><label class="inc" id="incwrap" hidden><input type="checkbox" id="inctotal" checked> Incluir total del filtro</label>
+  <div class="seg vista"><button id="vbar" class="on">Barras</button><button id="vcur">Curva</button></div></div></div>
+  <div class="chartbox"><canvas id="chart"></canvas></div></div>
 <div class="card"><h2>Detalle por tramo</h2>
-<table><thead><tr><th>Plazo</th><th>Operaciones</th><th>Monto</th><th>Tasa pond.</th><th>Tasa simple</th><th>Mín</th><th>Máx</th></tr></thead><tbody id="tbody"></tbody></table>
-<footer>Tasas en TNA tal como las informa el MAV. El promedio ponderado usa el monto nominal. Se excluyen las operaciones sin tasa o con tasa 0 (p. ej. valor producto). Tramos: hasta 30 días, 31–60, 61–90, 91–180, 181–365 y más de 365.</footer></div>
+<div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+<footer>Tasas en TNA tal como las informa el MAV. El promedio ponderado usa el monto nominal. Se excluyen las operaciones sin tasa o con tasa 0 (p. ej. valor producto). Tramos: hasta 30 días, 31–60, 61–90, 91–180, 181–365 y más de 365. En la curva, cada punto es el promedio del tramo ubicado en su plazo promedio y la línea es el ajuste logarítmico.</footer></div>
 </main>
 <script>
 const BUCKETS=[["1-30 días",0,30],["30-60 días",30,60],["60-90 días",60,90],["90-180 días",90,180],["180-365 días",180,365],["+365 días",365,1e9]];
-let rows=[],weighted=true,curva=false,chart=null;
+// Grupos de filtros: se pueden ver combinados o por separado.
+const GRUPOS={moneda:{"__USD":["U$S + U$D",r=>r.moneda==="U$S"||r.moneda==="U$D"]},
+              tipo:{"__CHQ":["Cheques (ECHEQ + CPD)",r=>r.tipo==="ECHEQ"||r.tipo==="CPD"]}};
+const MAXSEL=8;
+let rows=[],weighted=true,curva=false,chart=null,sel=[],slot={};
 const $=id=>document.getElementById(id);
 const fmtPct=v=>v==null?"–":v.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";
 const fmtM=v=>{if(!v)return"–";const a=Math.abs(v);return a>=1e9?(v/1e9).toLocaleString("es-AR",{maximumFractionDigits:2})+" MM":a>=1e6?(v/1e6).toLocaleString("es-AR",{maximumFractionDigits:1})+" M":v.toLocaleString("es-AR",{maximumFractionDigits:0})};
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function status(t,err){$("status").textContent=t||"";$("status").className="status"+(err?" err":"")}
 
-function opts(sel,values,allLabel,keep){
+function opts(sel,values,allLabel,keep,grupos){
   const prev=keep?sel.value:"";sel.innerHTML="";
-  if(allLabel){const o=new Option(allLabel,"");sel.add(o)}
+  if(allLabel)sel.add(new Option(allLabel,""));
+  Object.entries(grupos||{}).forEach(([k,[lab]])=>sel.add(new Option(lab,k)));
   values.forEach(v=>sel.add(new Option(v||"(sin dato)",v)));
   if(keep&&[...sel.options].some(o=>o.value===prev))sel.value=prev;
 }
 const uniq=a=>[...new Set(a)].sort((x,y)=>x.localeCompare(y,"es"));
+function pasa(campo,r){const v=$(campo).value;if(!v)return true;const g=(GRUPOS[campo]||{})[v];return g?g[1](r):r[campo]===v}
 
 function base(){ // filtros salvo responsable
-  return rows.filter(r=>r.tasa!=null&&r.tasa>0&&r.plazo!=null
-    &&(!$("moneda").value||r.moneda===$("moneda").value)
-    &&(!$("segmento").value||r.segmento===$("segmento").value)
-    &&(!$("tipo").value||r.tipo===$("tipo").value));
+  return rows.filter(r=>r.tasa!=null&&r.tasa>0&&r.plazo!=null&&pasa("moneda",r)&&pasa("segmento",r)&&pasa("tipo",r));
+}
+// ---- selector múltiple: el color sigue a la SGR mientras esté elegida (no al orden)
+function colorDe(n){return css("--s"+(slot[n]+1))}
+function toggle(n){
+  if(sel.includes(n)){sel=sel.filter(x=>x!==n);delete slot[n]}
+  else if(sel.length<MAXSEL){sel.push(n);const usados=new Set(Object.values(slot));let i=0;while(usados.has(i))i++;slot[n]=i}
+  refreshResp();render();
 }
 function refreshResp(){
-  const b=base();const m={};b.forEach(r=>{m[r.responsable]=(m[r.responsable]||0)+r.monto});
+  const m={};base().forEach(r=>{m[r.responsable]=(m[r.responsable]||0)+r.monto});
   const vals=Object.keys(m).sort((a,c)=>m[c]-m[a]);
-  const prev=$("resp").value;$("resp").innerHTML="";$("resp").add(new Option("Todos ("+vals.length+")",""));
-  vals.forEach(v=>$("resp").add(new Option((v||"(sin responsable)")+" · "+fmtM(m[v]),v)));
-  if([...$("resp").options].some(o=>o.value===prev))$("resp").value=prev;
+  const q=$("msq").value.trim().toLowerCase(),lleno=sel.length>=MAXSEL;
+  $("mslist").innerHTML=vals.filter(v=>!q||(v||"").toLowerCase().includes(q)).map(v=>{
+    const on=sel.includes(v),off=!on&&lleno;
+    return `<label class="${off?"off":""}"><input type="checkbox" data-v="${esc(v)}" ${on?"checked":""} ${off?"disabled":""}>${esc(v||"(sin responsable)")}<span class="m">${fmtM(m[v])}</span></label>`}).join("")
+    ||'<div style="padding:6px;color:var(--muted)">Sin resultados</div>';
+  $("mscount").textContent=vals.length+" con operaciones";
+  $("msbtn").textContent=sel.length?sel.length+" seleccionada"+(sel.length>1?"s":""):"Todos ("+vals.length+")";
+  $("chips").innerHTML=sel.map(n=>`<span class="chip"><i style="background:${colorDe(n)}"></i>${esc(n||"(sin responsable)")}<button data-v="${esc(n)}" title="Quitar">×</button></span>`).join("");
+  $("incwrap").hidden=!sel.length;
 }
-function render(){
-  const d=base().filter(r=>!$("resp").value||r.responsable===$("resp").value);
-  const stats=BUCKETS.map(([lab,lo,hi])=>{
+$("msbtn").onclick=e=>{e.stopPropagation();$("mspanel").hidden=!$("mspanel").hidden;if(!$("mspanel").hidden)$("msq").focus()};
+$("mspanel").onclick=e=>e.stopPropagation();
+document.addEventListener("click",()=>$("mspanel").hidden=true);
+$("mslist").onchange=e=>{if(e.target.dataset.v!==undefined)toggle(e.target.dataset.v)};
+$("chips").onclick=e=>{if(e.target.dataset.v!==undefined)toggle(e.target.dataset.v)};
+$("msq").oninput=refreshResp;
+$("msclear").onclick=()=>{sel=[];slot={};refreshResp();render()};
+$("inctotal").onchange=render;
+
+function stats(d){
+  return BUCKETS.map(([lab,lo,hi])=>{
     const s=d.filter(r=>r.plazo>lo&&r.plazo<=hi||(lo===0&&r.plazo<=0));
     const m=s.reduce((a,r)=>a+r.monto,0);
     const tp=m?s.reduce((a,r)=>a+r.tasa*r.monto,0)/m:null;
@@ -348,23 +405,44 @@ function render(){
     const xp=m?s.reduce((a,r)=>a+r.plazo*r.monto,0)/m:null,xs=s.length?s.reduce((a,r)=>a+r.plazo,0)/s.length:null;
     return {lab,n:s.length,m,tp,ts,xp,xs,min:s.length?Math.min(...s.map(r=>r.tasa)):null,max:s.length?Math.max(...s.map(r=>r.tasa)):null};
   });
+}
+function render(){
+  const b=base();
+  const d=sel.length?b.filter(r=>sel.includes(r.responsable)):b;
+  // series: una por SGR elegida (+ total del filtro como referencia), o solo el total
+  const series=sel.length
+    ?[...($("inctotal").checked?[{name:"Total del filtro",d:b,color:css("--total"),total:true}]:[]),...sel.map(n=>({name:n||"(sin responsable)",d:b.filter(r=>r.responsable===n),color:colorDe(n)}))]
+    :[{name:"Total",d:b,color:css("--s1")}];
+  series.forEach(s=>{s.st=stats(s.d);s.vals=s.st.map(x=>weighted?x.tp:x.ts)});
   const M=d.reduce((a,r)=>a+r.monto,0);
   $("k_n").textContent=d.length.toLocaleString("es-AR");
   $("k_m").textContent=fmtM(M);
   $("k_t").textContent=fmtPct(weighted?(M?d.reduce((a,r)=>a+r.tasa*r.monto,0)/M:null):(d.length?d.reduce((a,r)=>a+r.tasa,0)/d.length:null));
   $("k_p").textContent=d.length?Math.round(M?d.reduce((a,r)=>a+r.plazo*r.monto,0)/M:0)+" días":"–";
-  $("tbody").innerHTML=stats.map(s=>`<tr><td>${s.lab}</td><td>${s.n||"–"}</td><td>${fmtM(s.m)}</td><td>${fmtPct(s.tp)}</td><td>${fmtPct(s.ts)}</td><td>${fmtPct(s.min)}</td><td>${fmtPct(s.max)}</td></tr>`).join("");
-  const r=$("resp").value;
-  $("ctitle").textContent="Tasa promedio "+(weighted?"ponderada":"simple")+" por plazo"+(r?" · "+r:"");
-  const vals=stats.map(s=>weighted?s.tp:s.ts);
-  const ink=css("--ink"),muted=css("--muted"),line=css("--line"),acc=css("--accent");
-  const cfg={type:"bar",data:{labels:stats.map(s=>s.lab),datasets:[{data:vals,backgroundColor:acc,borderRadius:4,maxBarThickness:70}]},
-    options:{maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>fmtPct(c.raw),afterLabel:c=>stats[c.dataIndex].n+" ops · "+fmtM(stats[c.dataIndex].m)}}},
+  const solo=series.length===1;
+  if(solo){
+    const st=series[0].st;
+    $("thead").innerHTML="<tr><th>Plazo</th><th>Operaciones</th><th>Monto</th><th>Tasa pond.</th><th>Tasa simple</th><th>Mín</th><th>Máx</th></tr>";
+    $("tbody").innerHTML=st.map(s=>`<tr><td>${s.lab}</td><td>${s.n||"–"}</td><td>${fmtM(s.m)}</td><td>${fmtPct(s.tp)}</td><td>${fmtPct(s.ts)}</td><td>${fmtPct(s.min)}</td><td>${fmtPct(s.max)}</td></tr>`).join("");
+  }else{
+    $("thead").innerHTML="<tr><th>Plazo</th>"+series.map(s=>`<th><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${s.color};margin-right:5px"></i>${esc(s.name)}</th>`).join("")+"</tr>";
+    $("tbody").innerHTML=BUCKETS.map((bk,i)=>`<tr><td>${bk[0]}</td>`+series.map(s=>{const x=s.st[i];return `<td>${fmtPct(s.vals[i])}<br><small>${x.n?x.n+" ops · "+fmtM(x.m):"sin ops"}</small></td>`}).join("")+"</tr>").join("");
+  }
+  $("ctitle").textContent="Tasa promedio "+(weighted?"ponderada":"simple")+" por plazo"+(sel.length===1?" · "+(sel[0]||"(sin responsable)"):sel.length>1?" · comparación de "+sel.length:"");
+  if(chart)chart.destroy();chart=new Chart($("chart"),curva?curveCfg(series):barCfg(series));
+}
+function legendOpts(n){const muted=css("--muted");
+  return {display:n>1,position:"top",align:"start",labels:{color:css("--ink"),usePointStyle:true,pointStyle:"circle",boxWidth:8,boxHeight:8,padding:14,
+    filter:i=>!i.text.startsWith("~")}}}
+function barCfg(series){
+  const ink=css("--ink"),muted=css("--muted"),line=css("--line"),solo=series.length===1;
+  return {type:"bar",data:{labels:BUCKETS.map(b=>b[0]),datasets:series.map(s=>({label:s.name,data:s.vals,backgroundColor:s.color,
+      borderRadius:4,borderColor:css("--card"),borderWidth:solo?0:{top:0,right:1,bottom:0,left:1},maxBarThickness:solo?70:34}))},
+    options:{maintainAspectRatio:false,animation:false,layout:{padding:{top:solo?18:0}},plugins:{legend:legendOpts(series.length),
+      tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtPct(c.raw),afterLabel:c=>{const x=series[c.datasetIndex].st[c.dataIndex];return x.n+" ops · "+fmtM(x.m)}}}},
       scales:{x:{grid:{display:false},ticks:{color:muted}},y:{beginAtZero:true,grid:{color:line},ticks:{color:muted,callback:v=>v+"%"}}}},
-    plugins:[{id:"lbl",afterDatasetsDraw(c){const ctx=c.ctx;ctx.save();ctx.fillStyle=ink;ctx.font="600 12px system-ui";ctx.textAlign="center";
-      c.getDatasetMeta(0).data.forEach((b,i)=>{if(vals[i]!=null)ctx.fillText(fmtPct(vals[i]),b.x,b.y-6)});ctx.restore()}}]};
-  if(chart)chart.destroy();chart=new Chart($("chart"),curva?curveCfg(stats,vals):cfg);
+    plugins:solo?[{id:"lbl",afterDatasetsDraw(c){const ctx=c.ctx,vals=series[0].vals;ctx.save();ctx.fillStyle=ink;ctx.font="600 12px system-ui";ctx.textAlign="center";
+      c.getDatasetMeta(0).data.forEach((b,i)=>{if(vals[i]!=null)ctx.fillText(fmtPct(vals[i]),b.x,b.y-6)});ctx.restore()}}]:[]};
 }
 function logFit(pts){ // tasa = a + b·ln(días), sobre los puntos de cada tramo
   if(pts.length<2)return null;let n=pts.length,sx=0,sy=0,sxx=0,sxy=0;
@@ -372,32 +450,36 @@ function logFit(pts){ // tasa = a + b·ln(días), sobre los puntos de cada tramo
   const den=n*sxx-sx*sx;if(Math.abs(den)<1e-12)return null;
   const b=(n*sxy-sx*sy)/den,a=(sy-b*sx)/n;return x=>a+b*Math.log(x);
 }
-function curveCfg(stats,vals){
-  const pts=stats.map((s,i)=>({x:weighted?s.xp:s.xs,y:vals[i],s})).filter(p=>p.y!=null&&p.x>0);
-  const f=logFit(pts),x0=pts.length?Math.min(...pts.map(p=>p.x)):0,x1=pts.length?Math.max(...pts.map(p=>p.x)):1;
-  const line=f?Array.from({length:80},(_,i)=>{const x=x0+(x1-x0)*i/79;return{x,y:f(x)}}):[];
-  const ys=pts.map(p=>p.y).concat(line.map(p=>p.y)),lo=Math.min(...ys),hi=Math.max(...ys),pad=Math.max(1,(hi-lo)*.25);
-  const ink=css("--ink"),muted=css("--muted"),grid=css("--line"),acc=css("--accent");
-  return {data:{datasets:[
-      {type:"line",data:line,borderColor:acc,borderWidth:2.5,pointRadius:0,order:2},
-      {type:"scatter",data:pts,backgroundColor:acc,borderColor:css("--card"),borderWidth:2,pointRadius:7,pointHoverRadius:9,order:1}]},
-    options:{maintainAspectRatio:false,animation:false,layout:{padding:{top:22,right:12}},
-      plugins:{legend:{display:false},tooltip:{filter:i=>i.datasetIndex===1,callbacks:{
-        title:c=>c[0].raw.s.lab,label:c=>"Tasa "+fmtPct(c.raw.y)+" · plazo prom. "+Math.round(c.raw.x)+" días",
+function curveCfg(series){
+  const ink=css("--ink"),muted=css("--muted"),grid=css("--line"),card=css("--card"),solo=series.length===1;
+  const ds=[],ys=[];
+  series.forEach(s=>{
+    const pts=s.st.map((x,i)=>({x:weighted?x.xp:x.xs,y:s.vals[i],s:x})).filter(p=>p.y!=null&&p.x>0);
+    const f=logFit(pts),x0=pts.length?Math.min(...pts.map(p=>p.x)):0,x1=pts.length?Math.max(...pts.map(p=>p.x)):1;
+    const line=f?Array.from({length:80},(_,i)=>{const x=x0+(x1-x0)*i/79;return{x,y:f(x)}}):[];
+    ys.push(...pts.map(p=>p.y),...line.map(p=>p.y));
+    ds.push({type:"line",label:s.name,data:line,borderColor:s.color,backgroundColor:s.color,borderWidth:2,borderDash:s.total?[6,4]:[],pointRadius:0,order:2});
+    ds.push({type:"scatter",label:"~"+s.name,data:pts,backgroundColor:s.color,borderColor:card,borderWidth:2,pointRadius:solo?7:5.5,pointHoverRadius:8,order:1});
+  });
+  const lo=ys.length?Math.min(...ys):0,hi=ys.length?Math.max(...ys):1,pad=Math.max(1,(hi-lo)*.2);
+  return {data:{datasets:ds},
+    options:{maintainAspectRatio:false,animation:false,layout:{padding:{top:solo?22:0,right:12}},
+      plugins:{legend:legendOpts(series.length),tooltip:{filter:i=>i.dataset.type==="scatter",callbacks:{
+        title:c=>c[0].raw.s.lab,label:c=>c.dataset.label.slice(1)+": "+fmtPct(c.raw.y)+" · plazo prom. "+Math.round(c.raw.x)+" días",
         afterLabel:c=>c.raw.s.n+" ops · "+fmtM(c.raw.s.m)}}},
       scales:{x:{type:"linear",min:0,grid:{color:grid},ticks:{color:muted,callback:v=>v+" d"},title:{display:true,text:"Plazo (días)",color:muted}},
         y:{suggestedMin:Math.floor(lo-pad),suggestedMax:Math.ceil(hi+pad),grid:{color:grid},ticks:{color:muted,callback:v=>v+"%"}}}},
-    plugins:[{id:"lbl",afterDatasetsDraw(c){const ctx=c.ctx;ctx.save();ctx.textAlign="center";
-      c.getDatasetMeta(1).data.forEach((p,i)=>{ctx.fillStyle=ink;ctx.font="600 12px system-ui";
-        // tramos cortos quedan juntos: etiquetas alternadas arriba / abajo
-        ctx.fillText(fmtPct(pts[i].y),p.x,i%2?p.y+22:p.y-12)});ctx.restore()}}]};
+    // con varias series las etiquetas se pisan: solo se rotulan los puntos de una curva sola
+    plugins:solo?[{id:"lbl",afterDatasetsDraw(c){const ctx=c.ctx,pts=c.data.datasets[1].data;ctx.save();ctx.textAlign="center";ctx.fillStyle=ink;ctx.font="600 12px system-ui";
+      // tramos cortos quedan juntos: etiquetas alternadas arriba / abajo
+      c.getDatasetMeta(1).data.forEach((p,i)=>ctx.fillText(fmtPct(pts[i].y),p.x,i%2?p.y+22:p.y-12));ctx.restore()}}]:[]};
 }
 function onData(j){
   rows=j.filas;
-  opts($("moneda"),uniq(rows.map(r=>r.moneda)),"Todas",true);
+  opts($("moneda"),uniq(rows.map(r=>r.moneda)),"Todas",true,GRUPOS.moneda);
   if(!$("moneda").dataset.init){$("moneda").dataset.init=1;if(rows.some(r=>r.moneda==="$"))$("moneda").value="$"}
   opts($("segmento"),uniq(rows.map(r=>r.segmento)),"Todos",true);
-  opts($("tipo"),uniq(rows.map(r=>r.tipo)),"Todos",true);
+  opts($("tipo"),uniq(rows.map(r=>r.tipo)),"Todos",true,GRUPOS.tipo);
   refreshResp();render();
   status(`${j.fecha.split("-").reverse().join("/")} · ${rows.length} instrumentos operados · `+({api:"recién bajado del MAV",github:"guardado en GitHub",parcial:"guardado en GitHub (parcial del día)"}[j.origen]||"desde caché local"));
 }
@@ -418,7 +500,6 @@ async function estado(){
 $("cargar").onclick=()=>load($("fecha").value,$("fecha").value===new Date().toISOString().slice(0,10));
 $("cache").onchange=e=>{if(e.target.value){$("fecha").value=e.target.value;load(e.target.value)}};
 ["moneda","segmento","tipo"].forEach(id=>$(id).onchange=()=>{refreshResp();render()});
-$("resp").onchange=render;
 // En una pestaña oculta el gráfico nace en 0×0: se redibuja cuando la página toma tamaño.
 let lastW=0;new ResizeObserver(()=>{const w=document.body.clientWidth;if(w&&w!==lastW){lastW=w;if(rows.length)render()}}).observe(document.body);
 $("wpond").onclick=()=>{weighted=true;$("wpond").classList.add("on");$("wsimp").classList.remove("on");render()};

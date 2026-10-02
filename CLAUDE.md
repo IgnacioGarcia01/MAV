@@ -58,6 +58,20 @@ Observaciones:
 - Las páginas se embeben con `st.iframe` (components.html está obsoleto). En la pestaña que arranca
   oculta Chart.js nace en 0×0: un ResizeObserver sobre body redibuja al mostrarse.
 
+## Datos reales (verificado 02/10/2026 con días guardados)
+- TIPO INSTRUMENTO en operados y Tipo Instr. en tasas: ECHEQ, PAGARE, FCE, CPD (pocos) y a veces
+  "PAGARE AJUSTE TAMAR". ECHEQ y CPD vienen separados.
+- MONEDA: $, DOL, U$D, U$S. ~44 responsables distintos en Avalado por día.
+
+## Pestañas y backfill (desde 02/10/2026)
+- Resumen = solo hoy. Instrumentos operados = calendario (botones con key `cal_AAAA-MM-DD`
+  pintados por CSS `.st-key-...`) + página con selector múltiple de SGR (máx. 8, paleta categórica
+  validada de 8 colores; el color sigue a la SGR mientras está elegida).
+- Análisis histórico (`mav_historico.py`): cada día se agrega con pandas por
+  (tipo, moneda, segmento, responsable, tramo) y queda en memoria (`st.cache_resource`).
+- `backfill.py` + workflow: una llamada por corrida; día vacío (feriado) se guarda como "" para no
+  repedirlo; 1 de cada 4 corridas rota entre pendientes para que un día con error no trabe el resto.
+
 ## Reglas
 - Nunca commitear credenciales. Se leen de `.env` (en .gitignore) o variables de entorno.
 - `mav_cache/` no se versiona.

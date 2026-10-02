@@ -1,0 +1,37 @@
+# Completa los días de 2026 de Instrumentos Operados en el repo privado MAV-datos.
+# Una llamada al MAV por ejecución (la API exige 300 s entre llamadas).
+# Corre fuera del horario de mercado para no chocar con las consultas desde la app:
+# lun-vie de 19 a 9 h (hora argentina) y todo el día sábado y domingo.
+# Secrets necesarios (Settings → Secrets and variables → Actions):
+#   MAV_USER, MAV_PASS, DATA_TOKEN (el token fine-grained de MAV-datos)
+name: Backfill MAV
+
+on:
+  schedule:
+    - cron: "*/5 0-11,22-23 * * *"   # 19:00-08:59 ART todos los días
+    - cron: "*/5 12-21 * * 0,6"      # sábados y domingos de día
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-mav
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bajar un día pendiente
+        env:
+          MAV_USER: ${{ secrets.MAV_USER }}
+          MAV_PASS: ${{ secrets.MAV_PASS }}
+          GITHUB_TOKEN: ${{ secrets.DATA_TOKEN }}
+          GITHUB_DATA_REPO: IgnacioGarcia01/MAV-datos
+        run: python backfill.py

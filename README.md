@@ -48,3 +48,18 @@ GITHUB_DATA_REPO = "IgnacioGarcia01/MAV-datos"
 ```
 La app se niega a escribir si el repo de datos es público. El día de hoy se guarda como
 *parcial* (como máximo una vez por hora) y se reemplaza por el definitivo cuando el día cierra.
+
+## Pestañas (Streamlit)
+- **Resumen**: solo el día de hoy (API Consulta de Tasas).
+- **Instrumentos operados**: calendario mensual (verde = día guardado) y comparación de hasta
+  8 SGR en barras o curvas. Filtros combinados: "Cheques (ECHEQ + CPD)" y "U$S + U$D".
+- **Análisis histórico**: tasa por tramo o por SGR a lo largo del tiempo, sobre los días
+  guardados en `MAV-datos`.
+
+## Backfill automático (GitHub Actions)
+`.github/workflows/backfill.yml` corre `backfill.py` cada 5 minutos fuera del horario de
+mercado (lun-vie 19 a 9 h y fines de semana). Cada corrida baja **un** día hábil de 2026 que
+falte y lo guarda en `MAV-datos/mav_cache/`. Para activarlo, cargar en
+**Settings → Secrets and variables → Actions** del repo `MAV`:
+`MAV_USER`, `MAV_PASS` y `DATA_TOKEN` (el token fine-grained de `MAV-datos`).
+El log solo muestra la fecha y la cantidad de filas (el repo es público).
