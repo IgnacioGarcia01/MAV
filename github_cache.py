@@ -3,7 +3,9 @@
 Caché permanente de días del MAV en un repo de GitHub (API de contenidos, sin dependencias).
 
 Cada día se guarda comprimido como <carpeta>/AAAA-MM-DD.csv.gz (mav_cache/ para
-Instrumentos Operados, tasas_cache/ para Consulta de Tasas). Se usa desde
+Instrumentos Operados, tasas_cache/ para Consulta de Tasas). El día en curso va
+aparte, en <carpeta>/parcial/AAAA-MM-DD.csv.gz: se sobrescribe durante el día y se
+borra cuando se guarda el definitivo. Se usa desde
 streamlit_app.py para que los días descargados no se pierdan cuando Streamlit
 reinicia la app. Configuración (st.secrets o variables de entorno):
 
@@ -15,6 +17,8 @@ reinicia la app. Configuración (st.secrets o variables de entorno):
 import base64
 import gzip
 import json
+import struct
+import time
 import urllib.error
 import urllib.request
 
@@ -75,3 +79,48 @@ class GitHubCache:
         except urllib.error.HTTPError as e:
             if e.code not in (409, 422):
                 raise
+
+    # ------------------------------------------------- día en curso (parcial)
+    def _parcial(self, fecha_iso):
+        return "/contents/%s/parcial/%s.csv.gz" % (self.folder, fecha_iso)
+
+    def _sha(self, path):
+        try:
+            return json.loads(self._req("GET", path + "?ref=" + self.branch))["sha"]
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            raise
+
+    def get_partial(self, fecha_iso):
+        """(texto, timestamp de la foto) del día en curso, o None."""
+        try:
+            raw = self._req("GET", self._parcial(fecha_iso) + "?ref=" + self.branch,
+                            accept="application/vnd.github.raw")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            raise
+        ts = struct.unpack("<I", raw[4:8])[0]  # MTIME del encabezado gzip = hora de la foto
+        return gzip.decompress(raw).decode("utf-8"), ts
+
+    def put_partial(self, fecha_iso, text, ts=None):
+        path = self._parcial(fecha_iso)
+        gz = gzip.compress(text.encode("utf-8"), mtime=int(ts or time.time()))
+        body = {"message": "Día %s (parcial)" % fecha_iso, "branch": self.branch,
+                "content": base64.b64encode(gz).decode()}
+        sha = self._sha(path)
+        if sha:
+            body["sha"] = sha
+        try:
+            self._req("PUT", path, body)
+        except urllib.error.HTTPError as e:
+            if e.code not in (409, 422):  # otro usuario lo actualizó al mismo tiempo
+                raise
+
+    def delete_partial(self, fecha_iso):
+        path = self._parcial(fecha_iso)
+        sha = self._sha(path)
+        if sha:
+            self._req("DELETE", path, {"message": "Día %s: queda el definitivo" % fecha_iso,
+                                       "branch": self.branch, "sha": sha})

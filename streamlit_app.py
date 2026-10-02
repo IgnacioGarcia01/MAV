@@ -85,18 +85,99 @@ def fmt_fecha(iso):
 
 def render_page(html, data, height):
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    components.html(html.replace("__DATA__", data, 1), height=height, scrolling=True)
+    html = html.replace("__DATA__", data, 1)
+    if hasattr(st, "iframe"):  # components.html quedó obsoleto en Streamlit 1.5x
+        st.iframe(html, height=height)
+    else:
+        components.html(html, height=height, scrolling=True)
+
+
+# ============================================================ guardado en GitHub
+PARCIAL_CADA = 3600  # el parcial de hoy se sube a GitHub como máximo una vez por hora
+
+
+@st.cache_resource
+def _estado_parciales():
+    return {"subido": {}, "restaurado": set()}
+
+
+def avisar_github(accion, e):
+    st.warning("No se pudo %s en GitHub: %s. Los datos se ven igual, pero no quedan guardados "
+               "si la app se reinicia." % (accion, e))
+
+
+def guardar_definitivo(cache, fecha_iso, text):
+    """Guarda un día cerrado y borra su parcial. Devuelve el error o None."""
+    try:
+        cache.put(fecha_iso, text)
+    except Exception as e:
+        return e
+    try:
+        cache.delete_partial(fecha_iso)
+    except Exception:
+        pass  # un parcial que sobre no molesta: el definitivo tiene prioridad
+    return None
+
+
+def guardar_parcial(cache, d, text):
+    if not cache:
+        return
+    k = (cache.folder, d.isoformat())
+    subido = _estado_parciales()["subido"]
+    if time.time() - subido.get(k, 0) < PARCIAL_CADA:
+        return
+    try:
+        cache.put_partial(d.isoformat(), text)
+        subido[k] = time.time()
+    except Exception as e:
+        avisar_github("guardar el parcial de hoy", e)
+
+
+def restaurar_parcial(cache, d, path):
+    """Después de un reinicio, recupera la última foto de hoy desde GitHub (una vez por proceso)."""
+    if not cache:
+        return
+    k = (cache.folder, d.isoformat())
+    hechos = _estado_parciales()["restaurado"]
+    if k in hechos or os.path.exists(path):
+        return
+    hechos.add(k)
+    try:
+        r = cache.get_partial(d.isoformat())
+    except Exception as e:
+        return avisar_github("leer el parcial de hoy", e)
+    if r:
+        text, ts = r
+        os.makedirs(mav.CACHE_DIR, exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+        os.utime(path, (ts, ts))
+        _estado_parciales()["subido"][k] = ts
+
+
+def parcial_de_respaldo(cache, fecha_iso, error):
+    """Si el MAV no responde por un día pasado, se usa el último parcial guardado (si hay)."""
+    try:
+        r = cache.get_partial(fecha_iso) if cache else None
+    except Exception:
+        r = None
+    if not r:
+        raise error
+    st.warning("El MAV no respondió (%s). Se muestra la última foto guardada durante ese día, "
+               "que puede estar incompleta." % error)
+    return r[0]
 
 
 # ====================================================================== Resumen
 @st.cache_data(show_spinner=False)
 def tasas_dia_pasado(fecha_iso):
-    """Días pasados: GitHub → archivo local bajado después de ese día → MAV."""
+    """Días pasados: GitHub → archivo local bajado después de ese día → MAV.
+    Devuelve (filas, error_al_guardar)."""
     d = date.fromisoformat(fecha_iso)
     if gh_tasas:
         text = gh_tasas.get(fecha_iso)
         if text is not None:
-            return mt.parse(text)
+            return mt.parse(text), None
     path = mt.snapshot_path(d)
     # Un archivo bajado ese mismo día es parcial (se seguía operando): no sirve.
     if os.path.exists(path) and datetime.fromtimestamp(os.path.getmtime(path)).date() > d:
@@ -107,15 +188,25 @@ def tasas_dia_pasado(fecha_iso):
         os.makedirs(mav.CACHE_DIR, exist_ok=True)
         with open(path, "w", encoding="utf-8", newline="") as f:
             f.write(text)
-    if gh_tasas:
-        gh_tasas.put(fecha_iso, text)
-    return mt.parse(text)
+    return mt.parse(text), guardar_definitivo(gh_tasas, fecha_iso, text) if gh_tasas else None
+
+
+def tasas_pasado(fecha_iso):
+    try:
+        filas, err = tasas_dia_pasado(fecha_iso)
+    except RuntimeError as e:
+        return mt.parse(parcial_de_respaldo(gh_tasas, fecha_iso, e)), "foto parcial del día"
+    if err:
+        tasas_dia_pasado.clear(fecha_iso)  # se reintenta guardar en la próxima consulta
+        avisar_github("guardar el día", err)
+    return filas, "día cerrado"
 
 
 def tasas_hoy(forzar):
     """Hoy: se vuelve a pedir al MAV si la última foto tiene más de 5 minutos."""
     d = date.today()
     path = mt.snapshot_path(d)
+    restaurar_parcial(gh_tasas, d, path)
     edad = time.time() - os.path.getmtime(path) if os.path.exists(path) else None
     aviso = None
     if edad is None or edad >= mt.MIN_INTERVAL or forzar:
@@ -124,6 +215,7 @@ def tasas_hoy(forzar):
             os.makedirs(mav.CACHE_DIR, exist_ok=True)
             with open(path, "w", encoding="utf-8", newline="") as f:
                 f.write(text)
+            guardar_parcial(gh_tasas, d, text)
         except RuntimeError as e:
             if edad is None:
                 raise
@@ -144,12 +236,13 @@ def tab_resumen():
         st.write("")
         actualizar = st.button("Actualizar", use_container_width=True, disabled=not es_hoy,
                                help="Vuelve a pedir los datos de hoy al MAV (máx. una vez cada 5 min).")
+    aviso = None
     try:
         with st.spinner("Consultando tasas del %s…" % fecha.strftime("%d/%m/%Y")):
             if es_hoy:
                 filas, nota, aviso = tasas_hoy(actualizar)
             else:
-                filas, nota, aviso = tasas_dia_pasado(fecha.isoformat()), "día cerrado", None
+                filas, nota = tasas_pasado(fecha.isoformat())
     except RuntimeError as e:
         st.error(str(e))
         return
@@ -169,27 +262,36 @@ def github_days():
 
 @st.cache_data(show_spinner=False)
 def load_past_day(fecha_iso):
-    """Días pasados: no cambian. Orden: GitHub → MAV (y se guarda en GitHub)."""
+    """Días pasados: no cambian. Orden: GitHub → MAV (y se guarda en GitHub).
+    Devuelve (filas, origen, error_al_guardar)."""
     if gh:
         text = gh.get(fecha_iso)
         if text:
-            return mav.parse(text), "github"
+            return mav.parse(text), "github", None
         # Un CSV local que no está en GitHub puede ser un "hoy" parcial de otro día: se vuelve a bajar.
         local = mav.cache_path(date.fromisoformat(fecha_iso))
         if os.path.exists(local):
             os.remove(local)
     text, origen = mav.fetch_day(date.fromisoformat(fecha_iso))
-    if gh:
-        gh.put(fecha_iso, text)
-        github_days.clear()
-    return mav.parse(text), origen
+    err = guardar_definitivo(gh, fecha_iso, text) if gh else None
+    github_days.clear()
+    return mav.parse(text), origen, err
 
 
 def load(d, refrescar):
     if d < date.today():
-        return load_past_day(d.isoformat())
-    # Hoy todavía se opera: queda solo en el disco de la app, no en GitHub.
+        try:
+            filas, origen, err = load_past_day(d.isoformat())
+        except RuntimeError as e:
+            return mav.parse(parcial_de_respaldo(gh, d.isoformat(), e)), "parcial"
+        if err:
+            load_past_day.clear(d.isoformat())
+            avisar_github("guardar el día", err)
+        return filas, origen
+    # Hoy todavía se opera: en GitHub va como parcial (se reemplaza al cerrar el día).
     text, origen = mav.fetch_day(d, force=refrescar)
+    if origen == "api":
+        guardar_parcial(gh, d, text)
     return mav.parse(text), origen
 
 
@@ -204,6 +306,7 @@ PAGE_OPERADOS = (mav.PAGE
 
 
 def tab_operados():
+    restaurar_parcial(gh, date.today(), mav.cache_path(date.today()))
     guardados = sorted(set(github_days()) | set(mav.cached_days()), reverse=True)
     c1, c2, c3 = st.columns([2, 1, 2])
     with c3:

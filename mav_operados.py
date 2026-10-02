@@ -399,7 +399,7 @@ function onData(j){
   opts($("segmento"),uniq(rows.map(r=>r.segmento)),"Todos",true);
   opts($("tipo"),uniq(rows.map(r=>r.tipo)),"Todos",true);
   refreshResp();render();
-  status(`${j.fecha.split("-").reverse().join("/")} · ${rows.length} instrumentos operados · `+(j.origen==="api"?"recién bajado del MAV":"desde caché local"));
+  status(`${j.fecha.split("-").reverse().join("/")} · ${rows.length} instrumentos operados · `+({api:"recién bajado del MAV",github:"guardado en GitHub",parcial:"guardado en GitHub (parcial del día)"}[j.origen]||"desde caché local"));
 }
 async function load(f,refrescar){
   if(!f)return status("Elegí un día.",true);
@@ -419,6 +419,8 @@ $("cargar").onclick=()=>load($("fecha").value,$("fecha").value===new Date().toIS
 $("cache").onchange=e=>{if(e.target.value){$("fecha").value=e.target.value;load(e.target.value)}};
 ["moneda","segmento","tipo"].forEach(id=>$(id).onchange=()=>{refreshResp();render()});
 $("resp").onchange=render;
+// En una pestaña oculta el gráfico nace en 0×0: se redibuja cuando la página toma tamaño.
+let lastW=0;new ResizeObserver(()=>{const w=document.body.clientWidth;if(w&&w!==lastW){lastW=w;if(rows.length)render()}}).observe(document.body);
 $("wpond").onclick=()=>{weighted=true;$("wpond").classList.add("on");$("wsimp").classList.remove("on");render()};
 $("vbar").onclick=()=>{curva=false;$("vbar").classList.add("on");$("vcur").classList.remove("on");render()};
 $("vcur").onclick=()=>{curva=true;$("vcur").classList.add("on");$("vbar").classList.remove("on");render()};

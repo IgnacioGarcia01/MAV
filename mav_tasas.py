@@ -152,6 +152,9 @@ Pagarés en dólares: monedas U$S y U$D. Se excluyen grupos sin tasa o con tasa 
 </main>
 <script>
 const DATA=__DATA__;
+const charts=[];
+// En una pestaña oculta los gráficos nacen en 0×0: se redimensionan cuando la página toma tamaño.
+new ResizeObserver(()=>charts.forEach(c=>c.resize())).observe(document.body);
 const BUCKETS=[["1-30",0,30],["30-60",30,60],["60-90",60,90],["90-120",90,120],["120-180",120,180],["180-365",180,365],["+365",365,1e9]];
 const $=id=>document.getElementById(id);
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -197,7 +200,7 @@ function curve(box,st,color,band){
   const line=f?Array.from({length:80},(_,i)=>{const x=x0+(x1-x0)*i/79;return{x,y:f(x)}}):[];
   const ys=pts.map(p=>p.y).concat(line.map(p=>p.y)),lo=Math.min(...ys),hi=Math.max(...ys),pad=Math.max(1,(hi-lo)*.25);
   const ink=css("--ink"),muted=css("--muted"),grid=css("--line");
-  new Chart($(box).querySelector("canvas"),{data:{datasets:[
+  charts.push(new Chart($(box).querySelector("canvas"),{data:{datasets:[
       {type:"line",data:line,borderColor:color,backgroundColor:band,fill:"start",borderWidth:2.5,pointRadius:0,tension:0,order:2},
       {type:"scatter",data:pts,backgroundColor:color,borderColor:css("--card"),borderWidth:2,pointRadius:7,pointHoverRadius:9,order:1}]},
     options:{maintainAspectRatio:false,animation:false,layout:{padding:{top:22,right:12}},
@@ -209,7 +212,7 @@ function curve(box,st,color,band){
     plugins:[{id:"lbl",afterDatasetsDraw(c){const ctx=c.ctx;ctx.save();ctx.fillStyle=ink;ctx.font="600 12px system-ui";ctx.textAlign="center";
       c.getDatasetMeta(1).data.forEach((p,i)=>{ctx.fillStyle=ink;ctx.font="600 12px system-ui";
         // tramos cortos quedan juntos: etiquetas alternadas arriba / abajo
-        ctx.fillText(fmtPct(pts[i].y),p.x,i%2?p.y+22:p.y-12)});ctx.restore()}}]});
+        ctx.fillText(fmtPct(pts[i].y),p.x,i%2?p.y+22:p.y-12)});ctx.restore()}}]}));
 }
 function table(id,st){
   $(id).innerHTML="<thead><tr><th>Plazo</th><th>Instr.</th><th>Monto</th><th>Tasa prom.</th><th>Mín</th><th>Máx</th></tr></thead><tbody>"+

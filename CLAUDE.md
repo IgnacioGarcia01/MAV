@@ -51,6 +51,12 @@ Observaciones:
   (si no hay ECHEQ se usan los CPD y se aclara en el gráfico).
 - Pestaña **Instrumentos operados**: la página PAGE de mav_operados.py, con botón Barras / Curva.
 - Días pasados en GitHub privado (`github_cache.py`): carpetas `mav_cache/` y `tasas_cache/`.
+  El día en curso va en `<carpeta>/parcial/AAAA-MM-DD.csv.gz` (como máximo 1 subida por hora; la hora de
+  la foto va en el MTIME del gzip). Tras un reinicio se restaura desde ahí; al guardar el definitivo se
+  borra. Si el MAV no responde por un día pasado sin definitivo, se muestra el parcial con aviso.
+  Probado con GitHub y MAV falsos (reinicio = borrar mav_cache/ y relanzar), 02/10/2026.
+- Las páginas se embeben con `st.iframe` (components.html está obsoleto). En la pestaña que arranca
+  oculta Chart.js nace en 0×0: un ResizeObserver sobre body redibuja al mostrarse.
 
 ## Reglas
 - Nunca commitear credenciales. Se leen de `.env` (en .gitignore) o variables de entorno.

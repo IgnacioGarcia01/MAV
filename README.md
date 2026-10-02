@@ -46,5 +46,5 @@ comprimidos (~100 KB por día). Agregar en Secrets:
 GITHUB_TOKEN = "github_pat_..."   # fine-grained, solo ese repo, Contents: Read and write
 GITHUB_DATA_REPO = "IgnacioGarcia01/MAV-datos"
 ```
-La app se niega a escribir si el repo de datos es público. El día de hoy no se guarda ahí
-(todavía se opera).
+La app se niega a escribir si el repo de datos es público. El día de hoy se guarda como
+*parcial* (como máximo una vez por hora) y se reemplaza por el definitivo cuando el día cierra.
