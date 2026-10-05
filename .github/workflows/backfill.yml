@@ -1,4 +1,4 @@
-# Completa los días de 2025 y 2026 de Instrumentos Operados en el repo privado MAV-datos,
+# Completa los días de 2024, 2025 y 2026 de Instrumentos Operados en el repo privado MAV-datos,
 # del más reciente al más viejo, con 5 minutos entre llamadas (la API exige 300 s).
 # GitHub saltea muchas corridas programadas (el fin de semana del 03/10 corrió ~17 de ~60),
 # así que cada corrida que sí arranca sigue de corrido hasta ~70 días (casi 6 h, el máximo
@@ -46,7 +46,7 @@ jobs:
           MAV_PASS: ${{ secrets.MAV_PASS }}
           GITHUB_TOKEN: ${{ secrets.DATA_TOKEN }}
           GITHUB_DATA_REPO: IgnacioGarcia01/MAV-datos
-          BACKFILL_DESDE: "2025-01-02"
+          BACKFILL_DESDE: "2024-01-02"
           BACKFILL_DIAS: ${{ github.event.inputs.dias || '70' }}
           # Las programadas cortan a las 9 h de los días hábiles; la manual corre cuando la lances.
           BACKFILL_FUERA_DE_HORARIO: ${{ github.event_name == 'schedule' && '1' || '0' }}
