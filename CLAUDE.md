@@ -69,8 +69,8 @@ Observaciones:
   validada de 8 colores; el color sigue a la SGR mientras está elegida).
 - Análisis histórico (`mav_historico.py`): cada día se agrega con pandas por
   (tipo, moneda, segmento, responsable, tramo) y queda en memoria (`st.cache_resource`).
-- `backfill.py` + workflow: corrida horaria de hasta 11 días seguidos desde 2025-01-02 (antes: una cada 5 min,
-  pero GitHub saltea crons tan frecuentes); día vacío (feriado) se guarda como "" para no
+- `backfill.py` + workflow: cron horario, pero GitHub saltea muchas corridas (fin de semana 03-04/10: ~17 de
+  ~60, sin errores del MAV). Por eso cada corrida sigue hasta ~70 días o hasta las 9 h de un día hábil; día vacío (feriado) se guarda como "" para no
   repedirlo; 1 de cada 4 corridas rota entre pendientes para que un día con error no trabe el resto.
 
 - Carga inicial (backfill.yml) se autodesactiva con `gh workflow disable` cuando backfill.py deja

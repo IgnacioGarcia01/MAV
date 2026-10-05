@@ -58,8 +58,8 @@ La app se niega a escribir si el repo de datos es público. El día de hoy se gu
 
 ## Backfill automático (GitHub Actions)
 `.github/workflows/backfill.yml` corre `backfill.py` una vez por hora fuera del horario de
-mercado (lun-vie 18 a 9 h y fines de semana). Cada corrida baja hasta 11 días hábiles que falten
-desde el 02/01/2025 (5 min entre llamadas, del más reciente al más viejo) y los guarda en
+mercado (lun-vie 18 a 9 h y fines de semana). Cada corrida baja de corrido (hasta ~70, cortando a las 9 h
+de los días hábiles) los días hábiles que falten desde el 02/01/2025 (5 min entre llamadas, del más reciente al más viejo) y los guarda en
 `MAV-datos/mav_cache/`. Para activarlo, cargar en
 **Settings → Secrets and variables → Actions** del repo `MAV`:
 `MAV_USER`, `MAV_PASS` y `DATA_TOKEN` (el token fine-grained de `MAV-datos`).

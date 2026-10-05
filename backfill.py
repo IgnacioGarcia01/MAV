@@ -13,7 +13,9 @@ API exige 300 s) y los guarda en mav_cache/AAAA-MM-DD.csv.gz. Lo corre GitHub Ac
 Variables: MAV_USER, MAV_PASS, GITHUB_TOKEN (Contents: Read and write sobre el repo
 de datos), GITHUB_DATA_REPO (por defecto IgnacioGarcia01/MAV-datos), BACKFILL_DESDE
 (por defecto 2026-01-02), BACKFILL_DIAS (por defecto 1: días a bajar en esta corrida)
-y BACKFILL_INCLUIR_HOY (1 = también el día de hoy, para el cierre de las 20 h).
+BACKFILL_INCLUIR_HOY (1 = también el día de hoy, para el cierre de las 20 h) y
+BACKFILL_FUERA_DE_HORARIO (1 = cortar al entrar en horario de mercado, lun-vie 9 a 18 h,
+para no chocar con las consultas desde la app).
 No imprime datos de operaciones: solo fecha y cantidad de filas. En Actions deja
 completo=true en GITHUB_OUTPUT cuando no falta ningún día.
 """
@@ -43,6 +45,11 @@ def pendientes(guardados, desde, hasta):
             out.append(d)
         d -= timedelta(days=1)
     return out
+
+
+def en_horario_de_mercado():
+    ahora = datetime.now(timezone(timedelta(hours=-3)))
+    return ahora.weekday() < 5 and 9 <= ahora.hour < 18
 
 
 def bajar(gh, d):
@@ -80,8 +87,12 @@ def main():
     # BACKFILL_DIAS > 1 (corrida manual): varios días seguidos, esperando el intervalo del MAV.
     cuantos = max(1, int(os.environ.get("BACKFILL_DIAS") or 1))
     hasta = hoy_ar() if os.environ.get("BACKFILL_INCLUIR_HOY") == "1" else hoy_ar() - timedelta(days=1)
+    fuera_de_horario = os.environ.get("BACKFILL_FUERA_DE_HORARIO") == "1"
     fallidos = set()
     for i in range(cuantos):
+        if fuera_de_horario and en_horario_de_mercado():
+            print("Horario de mercado: se corta acá y sigue a partir de las 18 h.")
+            return 0
         pend = pendientes(set(gh.days()), desde, hasta)
         if not pend:
             print("Backfill completo: no faltan días desde %s." % desde)

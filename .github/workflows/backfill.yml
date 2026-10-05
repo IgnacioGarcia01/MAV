@@ -1,7 +1,9 @@
 # Completa los días de 2025 y 2026 de Instrumentos Operados en el repo privado MAV-datos,
-# del más reciente al más viejo. Una corrida por hora que baja hasta 11 días seguidos con
-# 5 minutos entre llamadas (la API exige 300 s); las corridas horarias de GitHub son más
-# confiables que las de cada 5 minutos. Cuando no falta ningún día, se desactiva sola:
+# del más reciente al más viejo, con 5 minutos entre llamadas (la API exige 300 s).
+# GitHub saltea muchas corridas programadas (el fin de semana del 03/10 corrió ~17 de ~60),
+# así que cada corrida que sí arranca sigue de corrido hasta ~70 días (casi 6 h, el máximo
+# de Actions) o hasta que empieza el horario de mercado. Mientras una corre, las siguientes
+# quedan en espera (concurrency), nunca hay dos llamando al MAV a la vez. Cuando no falta ningún día, se desactiva sola:
 # desde ahí el día a día lo guarda cierre_diario.yml (20 h, días hábiles).
 # Corre fuera del horario de mercado para no chocar con las consultas desde la app:
 # lun-vie de 18 a 9 h (hora argentina) y todo el día sábado y domingo.
@@ -31,8 +33,7 @@ concurrency:
 jobs:
   backfill:
     runs-on: ubuntu-latest
-    # Programada: hasta 11 días (≈52 min). Manual: hasta ~70 días dentro del máximo de 6 h.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 355 || 58 }}
+    timeout-minutes: 355   # hasta ~70 días por corrida, dentro del máximo de 6 h de Actions
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -46,7 +47,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.DATA_TOKEN }}
           GITHUB_DATA_REPO: IgnacioGarcia01/MAV-datos
           BACKFILL_DESDE: "2025-01-02"
-          BACKFILL_DIAS: ${{ github.event.inputs.dias || '11' }}
+          BACKFILL_DIAS: ${{ github.event.inputs.dias || '70' }}
+          # Las programadas cortan a las 9 h de los días hábiles; la manual corre cuando la lances.
+          BACKFILL_FUERA_DE_HORARIO: ${{ github.event_name == 'schedule' && '1' || '0' }}
         run: python backfill.py
       - name: Desactivar la carga inicial (ya no faltan días)
         if: steps.bf.outputs.completo == 'true' && github.event_name == 'schedule'
