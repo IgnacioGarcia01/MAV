@@ -86,7 +86,11 @@ def main():
     desde = date.fromisoformat(os.environ.get("BACKFILL_DESDE") or "2026-01-02")
     # BACKFILL_DIAS > 1 (corrida manual): varios días seguidos, esperando el intervalo del MAV.
     cuantos = max(1, int(os.environ.get("BACKFILL_DIAS") or 1))
-    hasta = hoy_ar() if os.environ.get("BACKFILL_INCLUIR_HOY") == "1" else hoy_ar() - timedelta(days=1)
+    # El día en curso solo después de las 19 h: si el cierre de las 20 h arranca tarde (GitHub lo
+    # demora, p. ej. a las 4:30 del día siguiente), no se guarda vacío un día que todavía no se operó.
+    ahora = datetime.now(timezone(timedelta(hours=-3)))
+    incluir_hoy = os.environ.get("BACKFILL_INCLUIR_HOY") == "1" and ahora.hour >= 19
+    hasta = hoy_ar() if incluir_hoy else hoy_ar() - timedelta(days=1)
     fuera_de_horario = os.environ.get("BACKFILL_FUERA_DE_HORARIO") == "1"
     fallidos = set()
     for i in range(cuantos):
