@@ -31,15 +31,26 @@ class GitHubCache:
         self.token, self.repo, self.branch = token, repo, branch or "main"
         self.folder = folder
 
-    def _req(self, method, path, body=None, accept="application/vnd.github+json"):
-        req = urllib.request.Request(
-            API + "/repos/" + self.repo + path, method=method,
-            data=json.dumps(body).encode() if body is not None else None,
-            headers={"Authorization": "Bearer " + self.token, "Accept": accept,
-                     "X-GitHub-Api-Version": "2022-11-28",
-                     "User-Agent": "Rosental-Research/1.0"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return r.read()
+    def _req(self, method, path, body=None, accept="application/vnd.github+json", intentos=4):
+        """Llamada a la API. Reintenta errores temporales (5xx, límite de uso, red) con espera."""
+        for i in range(intentos):
+            req = urllib.request.Request(
+                API + "/repos/" + self.repo + path, method=method,
+                data=json.dumps(body).encode() if body is not None else None,
+                headers={"Authorization": "Bearer " + self.token, "Accept": accept,
+                         "X-GitHub-Api-Version": "2022-11-28",
+                         "User-Agent": "Rosental-Research/1.0"})
+            try:
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    return r.read()
+            except urllib.error.HTTPError as e:
+                temporal = e.code >= 500 or e.code == 429 or (e.code == 403 and "rate limit" in str(e.reason).lower())
+                if not temporal or i == intentos - 1:
+                    raise
+            except (urllib.error.URLError, OSError):  # red / timeout (OSError incluye TimeoutError)
+                if i == intentos - 1:
+                    raise
+            time.sleep(10 * (i + 1))
 
     def check_private(self):
         """Se niega a usar un repo público: los CSV traen libradores, CUIT y beneficiarios."""

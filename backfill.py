@@ -15,7 +15,8 @@ de datos), GITHUB_DATA_REPO (por defecto IgnacioGarcia01/MAV-datos), BACKFILL_DE
 (por defecto 2026-01-02), BACKFILL_DIAS (por defecto 1: días a bajar en esta corrida)
 BACKFILL_INCLUIR_HOY (1 = también el día de hoy, para el cierre de las 20 h) y
 BACKFILL_FUERA_DE_HORARIO (1 = cortar al entrar en horario de mercado, lun-vie 9 a 18 h,
-para no chocar con las consultas desde la app).
+para no chocar con las consultas desde la app) y BACKFILL_MODO=intradia (solo baja el día
+de hoy y lo guarda como parcial; lo usa intradia.yml a las 11, 14 y 16 h).
 No imprime datos de operaciones: solo fecha y cantidad de filas. En Actions deja
 completo=true en GITHUB_OUTPUT cuando no falta ningún día.
 """
@@ -31,6 +32,14 @@ if hasattr(time, "tzset"):
 
 import mav_operados as mav  # noqa: E402
 from github_cache import GitHubCache  # noqa: E402
+
+
+def sin_credenciales(texto):
+    """El log de Actions es público: se tapan usuario y clave si aparecieran en un error."""
+    for secreto in (mav.USER, mav.PASS):
+        if len(secreto) >= 4:
+            texto = texto.replace(secreto, "***")
+    return texto
 
 
 def hoy_ar():
@@ -72,6 +81,26 @@ def bajar(gh, d):
     return True
 
 
+def intradia(gh):
+    """Foto del día en curso: se guarda como parcial (el cierre de las 20 h la reemplaza)."""
+    hoy = hoy_ar()
+    if hoy.weekday() >= 5:
+        print("Fin de semana: no hay rueda.")
+        return 0
+    if hoy.isoformat() in set(gh.days()):
+        print("El cierre de hoy ya está guardado.")
+        return 0
+    try:
+        text, _ = mav.fetch_day(hoy, force=True)
+    except Exception as e:
+        msg = sin_credenciales(str(e))[:160]
+        print("No se pudo bajar hoy (%s): %s" % (type(e).__name__, msg))
+        return 0
+    gh.put_partial(hoy.isoformat(), text)
+    print("Parcial de hoy guardado (%d filas)." % max(0, len([l for l in text.splitlines() if l.strip()]) - 1))
+    return 0
+
+
 def main():
     mav.USER, mav.PASS = os.environ.get("MAV_USER", ""), os.environ.get("MAV_PASS", "")
     token = os.environ.get("GITHUB_TOKEN", "")
@@ -82,6 +111,9 @@ def main():
     gh.check_private()
     mav.CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mav_cache")
     mav.STATE_FILE = os.path.join(mav.CACHE_DIR, "_ultima_llamada.txt")
+
+    if os.environ.get("BACKFILL_MODO") == "intradia":
+        return intradia(gh)
 
     desde = date.fromisoformat(os.environ.get("BACKFILL_DESDE") or "2026-01-02")
     # BACKFILL_DIAS > 1 (corrida manual): varios días seguidos, esperando el intervalo del MAV.
@@ -97,7 +129,13 @@ def main():
         if fuera_de_horario and en_horario_de_mercado():
             print("Horario de mercado: se corta acá y sigue a partir de las 18 h.")
             return 0
-        pend = pendientes(set(gh.days()), desde, hasta)
+        try:
+            guardados = set(gh.days())
+        except Exception as e:
+            print("No se pudo leer la lista de días guardados (%s). Se reintenta en la próxima corrida."
+                  % type(e).__name__, flush=True)
+            return 0
+        pend = pendientes(guardados, desde, hasta)
         if not pend:
             print("Backfill completo: no faltan días desde %s." % desde)
             salida = os.environ.get("GITHUB_OUTPUT")
@@ -117,7 +155,14 @@ def main():
         else:
             d = faltan[0]
         print("[%d/%d] Faltan %d días. Pidiendo %s…" % (i + 1, cuantos, len(faltan), d.isoformat()), flush=True)
-        if not bajar(gh, d):
+        try:
+            ok = bajar(gh, d)
+        except Exception as e:  # cualquier error inesperado (red, GitHub, MAV): se saltea el día
+            # Solo el tipo y un texto corto, sin credenciales (el log es público).
+            msg = sin_credenciales(str(e))[:160]
+            print("Error con %s (%s): %s. Se saltea y sigue." % (d.isoformat(), type(e).__name__, msg), flush=True)
+            ok = False
+        if not ok:
             fallidos.add(d)
         if i + 1 < cuantos:
             time.sleep(mav.MIN_INTERVAL + 5)

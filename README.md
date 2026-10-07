@@ -68,3 +68,8 @@ Corrida manual (Actions → Backfill MAV → Run workflow): baja N días seguido
 Cuando ya no falta ningún día, **Backfill MAV se desactiva solo**. Desde ahí,
 **Cierre diario MAV** (`.github/workflows/cierre_diario.yml`) guarda a las 20 h de cada día
 hábil el informe final del día (y completa hasta 2 días que hayan quedado pendientes).
+
+## Día en curso
+**Intradiario MAV** (`.github/workflows/intradia.yml`) guarda una foto de hoy a las 11, 14 y 16 h
+(lun-vie) como parcial en `MAV-datos/mav_cache/parcial/`. El análisis histórico la incluye, y el
+botón **Actualizar hoy** (histórico e Instrumentos operados) la renueva al momento para todos.

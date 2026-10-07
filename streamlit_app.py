@@ -125,12 +125,14 @@ def guardar_definitivo(cache, fecha_iso, text):
     return None
 
 
-def guardar_parcial(cache, d, text):
+def guardar_parcial(cache, d, text, forzar=False):
+    """Sube la foto de hoy a GitHub. Automático: como máximo una vez por hora; forzar=True
+    (botón Actualizar / Consultar) la sube siempre, así la ven todos y el histórico."""
     if not cache:
         return
     k = (cache.folder, d.isoformat())
     subido = _estado_parciales()["subido"]
-    if time.time() - subido.get(k, 0) < PARCIAL_CADA:
+    if not forzar and time.time() - subido.get(k, 0) < PARCIAL_CADA:
         return
     try:
         cache.put_partial(d.isoformat(), text)
@@ -256,8 +258,38 @@ def load(d, refrescar):
     # Hoy todavía se opera: en GitHub va como parcial (se reemplaza al cerrar el día).
     text, origen = mav.fetch_day(d, force=refrescar)
     if origen == "api":
-        guardar_parcial(gh, d, text)
+        guardar_parcial(gh, d, text, forzar=refrescar)
     return mav.parse(text), origen
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def parcial_github_hoy(fecha_iso):
+    """(texto, timestamp) del parcial de hoy en GitHub (lo actualizan intradia.yml y la app)."""
+    try:
+        return gh.get_partial(fecha_iso) if gh else None
+    except Exception:
+        return None
+
+
+def texto_hoy():
+    """Datos de hoy para el histórico: el cierre si ya está; si no, la foto más reciente entre la
+    local y el parcial de GitHub. Devuelve (texto, "cierre" | hora "HH:MM") o (None, None)."""
+    hoy = date.today()
+    if hoy.isoformat() in github_days():
+        return gh.get(hoy.isoformat()) or "", "cierre"
+    path = mav.cache_path(hoy)
+    local_ts = os.path.getmtime(path) if os.path.exists(path) else 0
+    remoto = parcial_github_hoy(hoy.isoformat())
+    if remoto and remoto[1] > local_ts + 1:  # GitHub tiene una foto más nueva: queda también local
+        os.makedirs(mav.CACHE_DIR, exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(remoto[0])
+        os.utime(path, (remoto[1], remoto[1]))
+        local_ts = remoto[1]
+    if not local_ts:
+        return None, None
+    with open(path, encoding="utf-8") as f:
+        return f.read(), datetime.fromtimestamp(local_ts).strftime("%H:%M")
 
 
 INIT_JS = ('estado().then(j=>{if(j.dias_cache.length)load(j.dias_cache[0]);'
@@ -278,26 +310,37 @@ def calendario(guardados, definitivos, elegido):
     """Calendario mensual: verde = día guardado (definitivo); borde verde = parcial de hoy;
     contorno = elegido."""
     hoy = date.today()
-    if "cal_mes" not in st.session_state:
-        st.session_state.cal_mes = (elegido.year, elegido.month)
-    y, m = st.session_state.cal_mes
+    ss = st.session_state
+    if "cal_y" not in ss:
+        ss.cal_y, ss.cal_m = elegido.year, elegido.month
+    primer_anio = min([int(g[:4]) for g in guardados] + [hoy.year])
+    anios = list(range(primer_anio, hoy.year + 1))
 
     def mover(delta):
-        yy, mm = divmod(y * 12 + m - 1 + delta, 12)
-        st.session_state.cal_mes = (yy, mm + 1)
+        yy, mm = divmod(ss.cal_y * 12 + ss.cal_m - 1 + delta, 12)
+        ss.cal_y, ss.cal_m = yy, mm + 1
+
+    def ir_a_hoy():
+        ss.cal_y, ss.cal_m, ss.dia_op = hoy.year, hoy.month, hoy.isoformat()
 
     def elegir(iso):
-        st.session_state.dia_op = iso
+        ss.dia_op = iso
 
     css = [".st-key-calendario button{padding:0;min-height:34px;font-variant-numeric:tabular-nums}",
            ".st-key-calendario p{margin:0}"]
     with st.container(key="calendario"):
-        a, b, c = st.columns([1, 4, 1], vertical_alignment="center")
-        a.button("‹", key="cal_prev", on_click=mover, args=(-1,), use_container_width=True)
-        b.markdown("<div style='text-align:center;font-weight:600'>%s %d</div>" % (MESES[m - 1].capitalize(), y),
-                   unsafe_allow_html=True)
-        c.button("›", key="cal_next", on_click=mover, args=(1,), use_container_width=True,
-                 disabled=(y, m) >= (hoy.year, hoy.month))
+        a, b, c, d_, e = st.columns([0.8, 2.6, 1.7, 0.8, 1.2], vertical_alignment="bottom")
+        a.button("‹", key="cal_prev", on_click=mover, args=(-1,), use_container_width=True,
+                 disabled=(ss.cal_y, ss.cal_m) <= (anios[0], 1))
+        b.selectbox("Mes", list(range(1, 13)), key="cal_m", format_func=lambda i: MESES[i - 1].capitalize(),
+                    label_visibility="collapsed")
+        c.selectbox("Año", anios, key="cal_y", label_visibility="collapsed")
+        d_.button("›", key="cal_next", on_click=mover, args=(1,), use_container_width=True,
+                  disabled=(ss.cal_y, ss.cal_m) >= (hoy.year, hoy.month))
+        e.button("Hoy", key="cal_hoy", on_click=ir_a_hoy, use_container_width=True)
+        y, m = ss.cal_y, ss.cal_m
+        if (y, m) > (hoy.year, hoy.month):  # p. ej. un mes futuro elegido en el selector
+            y, m = hoy.year, hoy.month
         cols = st.columns(7)
         for col, dia in zip(cols, ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]):
             col.markdown("<div style='text-align:center;font-size:12px;opacity:.6'>%s</div>" % dia,
@@ -347,7 +390,8 @@ def tab_operados():
             st.caption("Guardado en GitHub: se abre sin llamar al MAV.")
         else:
             st.caption("Todavía no está guardado: hay que pedirlo al MAV (una consulta cada 5 minutos).")
-        consultar = (not guardado or fecha == hoy) and st.button("Consultar al MAV", type="primary")
+        consultar = (not guardado or fecha == hoy) and st.button(
+            "Actualizar hoy" if fecha == hoy else "Consultar al MAV", type="primary")
         st.markdown(
             "<div style='font-size:12.5px;opacity:.75;margin-top:8px'>"
             "<span style='display:inline-block;width:11px;height:11px;border-radius:3px;background:%s;"
@@ -397,7 +441,25 @@ def tab_historico():
         st.info("El análisis histórico usa los días guardados en GitHub: falta configurar "
                 "GITHUB_TOKEN y GITHUB_DATA_REPO en los secrets.")
         return
-    dias = sorted(d for d in github_days() if d < date.today().isoformat())
+    hoy = date.today()
+    h1, h2 = st.columns([5, 1], vertical_alignment="bottom")
+    if h2.button("Actualizar hoy", key="h_actualizar", use_container_width=True,
+                 help="Pide al MAV los datos de hoy (una consulta cada 5 minutos) y los suma al histórico."):
+        try:
+            with st.spinner("Consultando los datos de hoy al MAV…"):
+                load(hoy, refrescar=True)
+            parcial_github_hoy.clear()
+        except RuntimeError as e:
+            st.error(str(e))
+    texto, cuando = texto_hoy() if hoy.weekday() < 5 else (None, None)
+    h1.caption(("Incluye hoy: " + ("cierre del día." if cuando == "cierre" else
+                                   "parcial actualizado a las %s (se actualiza solo a las 11, 14 y 16 h)." % cuando))
+               if texto is not None else "Hoy todavía no tiene datos: se descargan solos a las 11, 14 y 16 h, "
+               "o con Actualizar hoy.")
+
+    dias = sorted(d for d in github_days() if d < hoy.isoformat())
+    if texto is not None:
+        dias.append(hoy.isoformat())
     if not dias:
         st.info("Todavía no hay días guardados.")
         return
@@ -407,8 +469,16 @@ def tab_historico():
     rango = f1.date_input("Período", value=(primero, ultimo), min_value=primero, max_value=ultimo,
                           format="DD/MM/YYYY", key="h_rango")
     desde, hasta = (rango if isinstance(rango, (tuple, list)) and len(rango) == 2 else (primero, ultimo))
+    pasados = [d for d in dias if d < hoy.isoformat()]
+    if pasados and hasta.isoformat() >= pasados[-1]:  # "hasta el último día" incluye hoy cuando aparece
+        hasta = ultimo
     elegidos = [d for d in dias if desde.isoformat() <= d <= hasta.isoformat()]
-    df = cargar_historico(elegidos)
+    # Hoy no se memoriza (cambia durante la rueda): se agrega en cada recarga.
+    df = cargar_historico([d for d in elegidos if d != hoy.isoformat()])
+    if hoy.isoformat() in elegidos:
+        df_hoy = mh.agregar_dia(hoy.isoformat(), texto)
+        if not df_hoy.empty:
+            df = pd.concat([df, df_hoy], ignore_index=True) if not df.empty else df_hoy
     if df.empty:
         st.info("No hay operaciones en el período elegido.")
         return

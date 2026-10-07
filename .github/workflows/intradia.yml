@@ -1,0 +1,36 @@
+# Foto del día en curso de Instrumentos Operados a las 11, 14 y 16 h (hora argentina),
+# guardada como parcial en MAV-datos (mav_cache/parcial/). La ven el calendario y el
+# análisis histórico; el cierre de las 20 h (cierre_diario.yml) la reemplaza.
+# GitHub puede demorar o saltear corridas programadas: el botón "Actualizar hoy" de la app
+# sirve para tener el dato al momento. Mismos secrets que backfill.yml.
+name: Intradiario MAV
+
+on:
+  schedule:
+    - cron: "0 14,17,19 * * 1-5"   # 11, 14 y 16 h ART, lunes a viernes
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-mav   # una sola llamada al MAV a la vez entre todos los workflows
+  cancel-in-progress: false
+
+jobs:
+  intradia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Guardar la foto de hoy
+        env:
+          MAV_USER: ${{ secrets.MAV_USER }}
+          MAV_PASS: ${{ secrets.MAV_PASS }}
+          GITHUB_TOKEN: ${{ secrets.DATA_TOKEN }}
+          GITHUB_DATA_REPO: IgnacioGarcia01/MAV-datos
+          BACKFILL_MODO: intradia
+        run: python backfill.py
