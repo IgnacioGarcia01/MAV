@@ -77,3 +77,9 @@ hábil el informe final del día (y completa hasta 2 días que hayan quedado pen
 **Intradiario MAV** (`.github/workflows/intradia.yml`) guarda una foto de hoy a las 11, 14 y 16 h
 (lun-vie) como parcial en `MAV-datos/mav_cache/parcial/`. El análisis histórico la incluye, y el
 botón **Actualizar hoy** (histórico e Instrumentos operados) la renueva al momento para todos.
+
+## Referencias (placa diaria)
+Pestaña **Referencias**: arma la tabla "Tasas CDP operadas en el día" (Avalado por SGR,
+Garantizado y No Garantizado; cheques ECHEQ + CPD en pesos; tramos de 30 días hasta 360) con la
+misma estética y tamaño que la placa de la firma (1496 × 1023 px) y la descarga en PNG o la copia
+al portapapeles para pegarla en la plantilla.

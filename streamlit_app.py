@@ -35,6 +35,7 @@ if hasattr(time, "tzset"):
 
 import mav_operados as mav  # noqa: E402
 import mav_historico as mh  # noqa: E402
+import mav_referencias as mr  # noqa: E402
 import mav_tasas as mt  # noqa: E402
 from github_cache import GitHubCache  # noqa: E402
 
@@ -552,10 +553,43 @@ def tab_historico():
                           "volumen": [float(vol.get(f, 0.0)) for f in fechas]}, 1080)
 
 
-resumen, operados, historico = st.tabs(["Resumen", "Instrumentos operados", "Análisis histórico"])
+# ==================================================================== Referencias
+@st.cache_data(show_spinner=False)
+def texto_dia_cerrado(fecha_iso):
+    return gh.get(fecha_iso) or ""
+
+
+def tab_referencias():
+    st.caption("Placa **Tasas CDP operadas en el día**: misma estética y tamaño que la que envía la firma "
+               "(1496 × 1023 px), para pegar en la plantilla. Cheques (ECHEQ + CPD) en pesos.")
+    hoy = date.today()
+    texto, hora, es_cierre = texto_hoy() if hoy.weekday() < 5 else (None, None, False)
+    dias = sorted((d for d in github_days() if d < hoy.isoformat()), reverse=True)
+    if texto is not None:
+        dias.insert(0, hoy.isoformat())
+    if not dias:
+        st.info("Todavía no hay días guardados.")
+        return
+    c1, c2, c3 = st.columns([1.2, 3.6, 1.3])
+    fecha = c1.selectbox("Día", dias, key="ref_dia", format_func=lambda d: fmt_fecha(d) + (
+        "  (hoy, %s)" % ("cierre" if es_cierre else "parcial %s" % hora) if d == hoy.isoformat() else ""))
+    text = texto if fecha == hoy.isoformat() else texto_dia_cerrado(fecha)
+    del_dia = {r["responsable"] for r in mav.parse(text) if r["segmento"] == "Avalado"}
+    sgrs = c2.multiselect("SGR (filas avaladas, en este orden)", sorted(set(mr.SGR_PLACA) | del_dia),
+                          default=mr.SGR_PLACA, key="ref_sgr")
+    ponderado = c3.radio("Promedio", ["Ponderado", "Simple"], key="ref_prom", horizontal=True) == "Ponderado"
+    filas = mr.calcular(text, sgrs, ponderado)
+    render_page(mr.PAGE, {"fecha": fecha, "tramos": mr.TRAMOS, "filas": filas},
+                260 + 70 * len(filas))
+
+
+resumen, operados, historico, referencias = st.tabs(
+    ["Resumen", "Instrumentos operados", "Análisis histórico", "Referencias"])
 with resumen:
     tab_resumen()
 with operados:
     tab_operados()
 with historico:
     tab_historico()
+with referencias:
+    tab_referencias()
