@@ -582,6 +582,12 @@ def tab_referencias():
     render_page(mr.PAGE, {"fecha": fecha, "tramos": mr.TRAMOS, "filas": filas},
                 260 + 70 * len(filas))
 
+    st.markdown("#### Curva de echeqs avalados")
+    st.caption("ECHEQ avalados en pesos de las SGR seleccionadas arriba, para el mismo día.")
+    kpis, puntos = mr.curva(text, sgrs)
+    render_page(mr.PAGE_CURVA, {"fecha": fecha, "fecha_larga": mr.fecha_larga(fecha), "sgrs": sgrs,
+                                "kpis": kpis, "puntos": puntos}, 1060)
+
 
 resumen, operados, historico, referencias = st.tabs(
     ["Resumen", "Instrumentos operados", "Análisis histórico", "Referencias"])
