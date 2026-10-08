@@ -56,7 +56,11 @@ La app se niega a escribir si el repo de datos es público. El día de hoy se gu
 - **Análisis histórico**: tasa por tramo o por SGR a lo largo del tiempo, sobre los días
   guardados en `MAV-datos`.
 
-## Backfill automático (GitHub Actions)
+## Backfill (GitHub Actions)
+La carga histórica terminó el 08/10/2026 (del 05/01/2024 en adelante; faltan 02-04/01/2024
+y 08/03/2024). Ya no corre programada: solo manual. Lo automático es el cierre de las 20 h
+y el intradiario.
+
 `.github/workflows/backfill.yml` corre `backfill.py` una vez por hora fuera del horario de
 mercado (lun-vie 18 a 9 h y fines de semana). Cada corrida baja de corrido (hasta ~70, cortando a las 9 h
 de los días hábiles) los días hábiles que falten desde el 02/01/2024 (5 min entre llamadas, del más reciente al más viejo) y los guarda en

@@ -1,6 +1,7 @@
 # Guarda el informe final de Instrumentos Operados de cada día hábil a las 20 h (hora
-# argentina) en el repo privado MAV-datos. Si algún día anterior quedó sin bajar, lo
-# completa en la misma corrida (hasta 3 días, 5 min entre llamadas).
+# argentina) en el repo privado MAV-datos. Si algún día reciente (desde el 01/10/2026)
+# quedó sin bajar, lo completa en la misma corrida (hasta 3 días, 5 min entre llamadas).
+# No vuelve a años anteriores: la carga histórica terminó el 08/10/2026.
 # Usa los mismos secrets que backfill.yml: MAV_USER, MAV_PASS, DATA_TOKEN.
 name: Cierre diario MAV
 
@@ -31,7 +32,7 @@ jobs:
           MAV_PASS: ${{ secrets.MAV_PASS }}
           GITHUB_TOKEN: ${{ secrets.DATA_TOKEN }}
           GITHUB_DATA_REPO: IgnacioGarcia01/MAV-datos
-          BACKFILL_DESDE: "2024-01-02"
+          BACKFILL_DESDE: "2026-10-01"
           BACKFILL_DIAS: "3"
           BACKFILL_INCLUIR_HOY: "1"
         run: python backfill.py

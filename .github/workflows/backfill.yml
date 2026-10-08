@@ -11,10 +11,9 @@
 #   MAV_USER, MAV_PASS, DATA_TOKEN (el token fine-grained de MAV-datos)
 name: Backfill MAV
 
+# Carga histórica terminada el 08/10/2026 (05/01/2024 en adelante): ya no corre sola.
+# Queda solo la ejecución manual (Run workflow) por si hiciera falta completar algo.
 on:
-  schedule:
-    - cron: "0 0-11,21-23 * * *"   # 18:00-08:59 ART todos los días
-    - cron: "0 12-20 * * 0,6"      # sábados y domingos de día
   workflow_dispatch:
     inputs:
       dias:
