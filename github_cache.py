@@ -70,8 +70,9 @@ class GitHubCache:
         return sorted((i["name"][:10] for i in items if i["name"].endswith(".csv.gz")),
                       reverse=True)
 
-    def get(self, fecha_iso):
-        """Texto CSV del día, o None si no está guardado."""
+    def get(self, fecha_iso, con_hora=False):
+        """Texto CSV del día, o None si no está guardado. con_hora=True devuelve (texto, timestamp
+        de cuando se guardó, tomado del encabezado gzip)."""
         try:
             raw = self._req("GET", "/contents/%s/%s.csv.gz?ref=%s" % (self.folder, fecha_iso, self.branch),
                             accept="application/vnd.github.raw")
@@ -79,12 +80,14 @@ class GitHubCache:
             if e.code == 404:
                 return None
             raise
-        return gzip.decompress(raw).decode("utf-8")
+        text = gzip.decompress(raw).decode("utf-8")
+        return (text, struct.unpack("<I", raw[4:8])[0]) if con_hora else text
 
     def put(self, fecha_iso, text):
         """Guarda el día. Si otro usuario lo guardó primero (422/409), no hace nada."""
         body = {"message": "Día %s" % fecha_iso, "branch": self.branch,
-                "content": base64.b64encode(gzip.compress(text.encode("utf-8"))).decode()}
+                # la hora va en el encabezado gzip (algunas versiones de Python ponen 0 si no se indica)
+                "content": base64.b64encode(gzip.compress(text.encode("utf-8"), mtime=int(time.time()))).decode()}
         try:
             self._req("PUT", "/contents/%s/%s.csv.gz" % (self.folder, fecha_iso), body)
         except urllib.error.HTTPError as e:

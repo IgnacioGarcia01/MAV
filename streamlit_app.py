@@ -271,12 +271,20 @@ def parcial_github_hoy(fecha_iso):
         return None
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def cierre_github(fecha_iso):
+    return gh.get(fecha_iso, con_hora=True)
+
+
 def texto_hoy():
-    """Datos de hoy para el histórico: el cierre si ya está; si no, la foto más reciente entre la
-    local y el parcial de GitHub. Devuelve (texto, "cierre" | hora "HH:MM") o (None, None)."""
+    """Datos de hoy: el cierre si ya está; si no, la foto más reciente entre la local y el parcial
+    de GitHub (automático de las 11/14/16 h o manual). Devuelve (texto, "HH:MM", es_cierre) o
+    (None, None, False). La hora sale del archivo guardado, así la ven todos y sobrevive reinicios."""
     hoy = date.today()
-    if hoy.isoformat() in github_days():
-        return gh.get(hoy.isoformat()) or "", "cierre"
+    if gh and hoy.isoformat() in github_days():
+        r = cierre_github(hoy.isoformat())
+        if r:  # archivos viejos pueden no tener hora (0 en el encabezado)
+            return r[0], datetime.fromtimestamp(r[1]).strftime("%H:%M") if r[1] else None, True
     path = mav.cache_path(hoy)
     local_ts = os.path.getmtime(path) if os.path.exists(path) else 0
     remoto = parcial_github_hoy(hoy.isoformat())
@@ -287,9 +295,9 @@ def texto_hoy():
         os.utime(path, (remoto[1], remoto[1]))
         local_ts = remoto[1]
     if not local_ts:
-        return None, None
+        return None, None, False
     with open(path, encoding="utf-8") as f:
-        return f.read(), datetime.fromtimestamp(local_ts).strftime("%H:%M")
+        return f.read(), datetime.fromtimestamp(local_ts).strftime("%H:%M"), False
 
 
 INIT_JS = ('estado().then(j=>{if(j.dias_cache.length)load(j.dias_cache[0]);'
@@ -366,6 +374,8 @@ def calendario(guardados, definitivos, elegido):
 def tab_operados():
     hoy = date.today()
     restaurar_parcial(gh, hoy, mav.cache_path(hoy))
+    # Trae la foto de hoy más reciente (automática o de cualquier usuario) antes de mostrarla.
+    _, hora_hoy, cierre_hoy = texto_hoy() if hoy.weekday() < 5 else (None, None, False)
     definitivos = set(github_days())
     guardados = definitivos | set(mav.cached_days())
     if "dia_op" not in st.session_state:
@@ -382,10 +392,14 @@ def tab_operados():
                                                   fecha.year))
         guardado = fecha.isoformat() in guardados
         en_2026 = sorted(g for g in guardados if g.startswith("2026") and g < hoy.isoformat())
-        if fecha == hoy and fecha.isoformat() in definitivos:
-            st.caption("Cierre del día guardado en GitHub (se guarda a las 20 h).")
+        if fecha == hoy and cierre_hoy:
+            st.markdown("**Cierre del día guardado%s.**" % (" a las " + hora_hoy if hora_hoy else ""))
+        elif fecha == hoy and hora_hoy:
+            st.markdown("**Última actualización: %s**" % hora_hoy)
+            st.caption("Se actualiza sola a las 11, 14 y 16 h, y cada vez que alguien toca Actualizar hoy. "
+                       "El cierre definitivo se guarda a las 20 h.")
         elif fecha == hoy:
-            st.caption("Día en curso: se guarda como parcial; el cierre definitivo se guarda a las 20 h.")
+            st.caption("Hoy todavía no tiene datos: se descargan solos a las 11, 14 y 16 h, o con Actualizar hoy.")
         elif guardado:
             st.caption("Guardado en GitHub: se abre sin llamar al MAV.")
         else:
@@ -413,6 +427,9 @@ def tab_operados():
         return
     if consultar:
         github_days.clear()
+        parcial_github_hoy.clear()
+        if fecha == hoy:  # la hora de arriba ya se dibujó: se recarga para mostrar la nueva
+            st.rerun()
     render_page(PAGE_OPERADOS, {"fecha": fecha.isoformat(), "origen": origen, "filas": filas}, 1350)
 
 
@@ -451,8 +468,8 @@ def tab_historico():
             parcial_github_hoy.clear()
         except RuntimeError as e:
             st.error(str(e))
-    texto, cuando = texto_hoy() if hoy.weekday() < 5 else (None, None)
-    h1.caption(("Incluye hoy: " + ("cierre del día." if cuando == "cierre" else
+    texto, cuando, es_cierre = texto_hoy() if hoy.weekday() < 5 else (None, None, False)
+    h1.caption(("Incluye hoy: " + (("cierre del día" + (" (guardado a las %s)." % cuando if cuando else ".")) if es_cierre else
                                    "parcial actualizado a las %s (se actualiza solo a las 11, 14 y 16 h)." % cuando))
                if texto is not None else "Hoy todavía no tiene datos: se descargan solos a las 11, 14 y 16 h, "
                "o con Actualizar hoy.")
