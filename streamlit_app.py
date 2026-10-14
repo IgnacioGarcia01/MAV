@@ -560,8 +560,8 @@ def texto_dia_cerrado(fecha_iso):
 
 
 def tab_referencias():
-    st.caption("Placa **Tasas CDP operadas en el día**: misma estética y tamaño que la que envía la firma "
-               "(1496 × 1023 px), para pegar en la plantilla. Cheques (ECHEQ + CPD) en pesos.")
+    st.caption("Diapositiva **Tasas CDP operadas en el día · Segmento Avalado**, igual a la de PowerPoint "
+               "(1600 px de ancho). Cheques (ECHEQ + CPD) en pesos; SGR en orden alfabético.")
     hoy = date.today()
     texto, hora, es_cierre = texto_hoy() if hoy.weekday() < 5 else (None, None, False)
     dias = sorted((d for d in github_days() if d < hoy.isoformat()), reverse=True)
@@ -575,18 +575,20 @@ def tab_referencias():
         "  (hoy, %s)" % ("cierre" if es_cierre else "parcial %s" % hora) if d == hoy.isoformat() else ""))
     text = texto if fecha == hoy.isoformat() else texto_dia_cerrado(fecha)
     del_dia = {r["responsable"] for r in mav.parse(text) if r["segmento"] == "Avalado"}
-    sgrs = c2.multiselect("SGR (filas avaladas, en este orden)", sorted(set(mr.SGR_PLACA) | del_dia),
-                          default=mr.SGR_PLACA, key="ref_sgr")
+    sgrs = c2.multiselect("SGR (filas de la tabla; se ordenan alfabéticamente)",
+                          mr.orden_alfabetico(set(mr.SGR_PLACA) | del_dia),
+                          default=mr.orden_alfabetico(mr.SGR_PLACA), key="ref_sgr")
+    sgrs = mr.orden_alfabetico(sgrs)
     ponderado = c3.radio("Promedio", ["Ponderado", "Simple"], key="ref_prom", horizontal=True) == "Ponderado"
     filas = mr.calcular(text, sgrs, ponderado)
-    render_page(mr.PAGE, {"fecha": fecha, "tramos": mr.TRAMOS, "filas": filas},
-                260 + 70 * len(filas))
+    render_page(mr.PAGE, {"fecha": fecha, "tramos": mr.TRAMOS, "filas": filas, "header": mr.HEADER},
+                420 + 70 * len(filas))
 
     st.markdown("#### Curva de echeqs avalados")
     st.caption("ECHEQ avalados en pesos de las SGR seleccionadas arriba, para el mismo día.")
     kpis, puntos = mr.curva(text, sgrs)
     render_page(mr.PAGE_CURVA, {"fecha": fecha, "fecha_larga": mr.fecha_larga(fecha), "sgrs": sgrs,
-                                "kpis": kpis, "puntos": puntos}, 1060)
+                                "kpis": kpis, "puntos": puntos, "logo": mr.LOGO_ROSENTAL}, 1060)
 
 
 resumen, operados, historico, referencias = st.tabs(

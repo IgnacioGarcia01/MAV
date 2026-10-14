@@ -79,6 +79,14 @@ Observaciones:
 - cierre_diario.yml: 20:00 ART lun-vie, BACKFILL_INCLUIR_HOY=1, comparte concurrency con backfill.
   La app abre "hoy" desde GitHub cuando ya está el cierre.
 
+## Metodología anterior de la placa (Excel "Informe tasas", revisado 14/10/2026)
+- Fuente: reporte de **subastas** del MAV (SUBASTA, ESTADO=Negociada, PPV, TASA C., EPYME),
+  no Instrumentos Operados → por eso la app nunca reprodujo los números de la placa.
+- Promedio **simple** (AVERAGEIFS) de TASA C. por tramo PPV ≤30…≤360, ECHEQ+CPD, moneda $.
+- Filas "Avalado -SGR" excluyen operaciones con EPYME=SI (pasan a "Avalado EPYME-SGR").
+- Errores: rangos desde la fila 3 (la primera operación pegada nunca cuenta) y hasta la fila 1060
+  (con fórmulas en Base solo hasta la 767): más operaciones quedan afuera sin aviso.
+
 ## Reglas
 - Nunca commitear credenciales. Se leen de `.env` (en .gitignore) o variables de entorno.
 - `mav_cache/` no se versiona.

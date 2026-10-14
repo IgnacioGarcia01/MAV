@@ -79,7 +79,9 @@ hábil el informe final del día (y completa hasta 2 días que hayan quedado pen
 botón **Actualizar hoy** (histórico e Instrumentos operados) la renueva al momento para todos.
 
 ## Referencias (placa diaria)
-Pestaña **Referencias**: arma la tabla "Tasas CDP operadas en el día" (Avalado por SGR,
-Garantizado y No Garantizado; cheques ECHEQ + CPD en pesos; tramos de 30 días hasta 360) con la
-misma estética y tamaño que la placa de la firma (1496 × 1023 px) y la descarga en PNG o la copia
-al portapapeles para pegarla en la plantilla.
+Pestaña **Referencias**: arma la diapositiva "Tasas CDP operadas en el día · Segmento Avalado"
+igual a la de PowerPoint (cabecera con logos, "Informe del día", tabla por SGR en orden
+alfabético y línea de cierre), a 1600 px de ancho, y la descarga en PNG o la copia al
+portapapeles. Cheques (ECHEQ + CPD) en pesos; tramos de 30 días hasta 360. Debajo, la curva
+de echeqs avalados con marca de agua de Rosental. Imágenes en `assets/` (cabecera y logo,
+tomados de la diapositiva).
