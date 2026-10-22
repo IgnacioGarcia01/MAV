@@ -232,8 +232,9 @@ canvas#c{width:100%;height:auto;display:block;border:1px solid var(--line);borde
 const D=__DATA__;
 // La imagen siempre sale en modo claro (es para compartir), aunque la app esté en oscuro.
 const NAVY="#002b55",INK="#14171c",GRIS="#6b7480",GRIS_CLARO="#c3c8cf",LINEA="#e6e9ee";
-// Paleta categórica validada (8 colores fijos); el color sigue a la SGR, no a su posición en pantalla.
-const PALETA=["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300","#4a3aa7","#e34948"];
+// Paleta Rosental (azules, índigos, violetas y verdes azulados), validada para daltonismo:
+// 8 colores fijos; el color sigue a la SGR, no a su posición en pantalla.
+const PALETA=["#394e8c","#668ccc","#6e1caa","#ba9ae0","#8059a8","#12c0d3","#3b5fe3","#14998d"];
 const FONT='"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif';
 const W=1600,PAD=72,ANCHO=W-2*PAD;
 const pct=v=>v==null?"–":v.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";

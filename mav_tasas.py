@@ -113,8 +113,8 @@ PAGE = r"""<!doctype html>
 <title>MAV · Resumen</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--c1:#1f4e8c;--c2:#1d7a5c;--band1:rgba(31,78,140,.08);--band2:rgba(29,122,92,.08)}
-@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--c1:#6fa0e0;--c2:#4fc29a;--band1:rgba(111,160,224,.10);--band2:rgba(79,194,154,.10)}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--c1:#394e8c;--c2:#14998d;--band1:rgba(57,78,140,.08);--band2:rgba(20,153,141,.08)}
+@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--c1:#6d8ada;--c2:#059488;--band1:rgba(109,138,218,.10);--band2:rgba(5,148,136,.10)}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{padding:8px 4px 24px}
 .head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 16px;margin:0 2px 12px}

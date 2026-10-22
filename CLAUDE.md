@@ -87,6 +87,15 @@ Observaciones:
 - Errores: rangos desde la fila 3 (la primera operación pegada nunca cuenta) y hasta la fila 1060
   (con fórmulas en Base solo hasta la 767): más operaciones quedan afuera sin aviso.
 
+## Paleta Rosental (gráficos, desde 22/10/2026)
+- Marca: azul #012060 (logo, Pantone 2767 C); tintes del manual #33477c, #67739d, #a6abc9, #d6d9e8.
+- Categórica de 8 (validada con dataviz/validate_palette.js; vecinos ΔE ≥ 19 claro / ≥ 15 oscuro):
+  claro  #394e8c, #668ccc, #6e1caa, #ba9ae0, #8059a8, #12c0d3, #3b5fe3, #14998d
+  oscuro #6d8ada, #0b56cc, #a181c6, #6e4f90, #a64df0, #26a4b3, #425da8, #059488 (mismo tono por posición)
+- En 8 colores solo-azules no hay forma de que todos los pares se distingan (todos-contra-todos ≈ 12,5):
+  por eso entran índigos, violetas y verdes azulados. Promedios en líneas discontinuas (marino y gris).
+- Resumen: ECHEQ #394e8c, pagarés USD #14998d.
+
 ## Reglas
 - Nunca commitear credenciales. Se leen de `.env` (en .gitignore) o variables de entorno.
 - `mav_cache/` no se versiona.

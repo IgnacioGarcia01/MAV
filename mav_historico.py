@@ -78,10 +78,10 @@ PAGE = r"""<!doctype html>
 <title>MAV · Histórico</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--accent:#1f4e8c;--total:#8a919c;
-  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948}
-@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--accent:#6fa0e0;--total:#7d848e;
-  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--accent:#394e8c;--total:#8a919c;
+  --s1:#394e8c;--s2:#668ccc;--s3:#6e1caa;--s4:#ba9ae0;--s5:#8059a8;--s6:#12c0d3;--s7:#3b5fe3;--s8:#14998d}
+@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--accent:#6d8ada;--total:#7d848e;
+  --s1:#6d8ada;--s2:#0b56cc;--s3:#a181c6;--s4:#6e4f90;--s5:#a64df0;--s6:#26a4b3;--s7:#425da8;--s8:#059488}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{padding:8px 4px 24px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
