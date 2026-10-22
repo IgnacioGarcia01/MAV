@@ -585,10 +585,11 @@ def tab_referencias():
                 420 + 70 * len(filas))
 
     st.markdown("#### Curva de echeqs avalados")
-    st.caption("ECHEQ avalados en pesos de las SGR seleccionadas arriba, para el mismo día.")
-    kpis, puntos = mr.curva(text, sgrs)
-    render_page(mr.PAGE_CURVA, {"fecha": fecha, "fecha_larga": mr.fecha_larga(fecha), "sgrs": sgrs,
-                                "kpis": kpis, "puntos": puntos, "logo": mr.LOGO_ROSENTAL}, 1060)
+    st.caption("ECHEQ avalados en pesos del mismo día. Los recuadros son del total de avalados (todas las "
+               "SGR); las curvas, de las SGR seleccionadas arriba (hasta %d)." % mr.MAX_CURVAS)
+    kpis, series = mr.curva(text, sgrs)
+    render_page(mr.PAGE_CURVA, {"fecha": fecha, "fecha_larga": mr.fecha_larga(fecha), "kpis": kpis,
+                                "series": series, "logo": mr.LOGO_ROSENTAL}, 1180)
 
 
 resumen, operados, historico, referencias = st.tabs(
