@@ -164,11 +164,11 @@ def fecha_larga(fecha_iso):
 
 
 def _puntos(ops):
-    """Un punto por tramo de la placa (y uno más para +360 días): tasa ponderada por monto,
-    ubicada en el plazo promedio ponderado del tramo."""
+    """Un punto por tramo de la placa (hasta 360 días, como el cuadro): tasa ponderada por monto,
+    ubicada en el plazo promedio ponderado del tramo. Lo de más de 360 días no entra en la curva."""
     puntos = []
-    for i in range(len(TRAMOS) + 1):
-        sub = [r for r in ops if (tramo(r["plazo"]) == i if i < len(TRAMOS) else r["plazo"] > 360)]
+    for i in range(len(TRAMOS)):
+        sub = [r for r in ops if tramo(r["plazo"]) == i]
         m = sum(r["monto"] for r in sub)
         if m:
             puntos.append({"x": sum(r["plazo"] * r["monto"] for r in sub) / m,
@@ -178,7 +178,8 @@ def _puntos(ops):
 
 
 def curva(text, sgrs):
-    """ECHEQ avalados en pesos. Los KPIs son del total de avalados (todas las SGR); las series
+    """ECHEQ avalados en pesos. Los KPIs son del total de avalados (todas las SGR y todos los plazos,
+    también los de más de 360 días); las series
     son una curva por SGR elegida, el promedio del mercado (todas las SGR) y el promedio de las
     SGR elegidas (todas sus operaciones juntas)."""
     ops = [r for r in mav.parse(text)
@@ -274,8 +275,8 @@ function grafico(w,h,visibles,puntos,etiq){ // Chart.js en un canvas aparte, sin
   new Chart(off,{data:{datasets:ds},
     options:{responsive:false,animation:false,devicePixelRatio:1,layout:{padding:{top:30,right:30,left:6,bottom:4}},
       plugins:{legend:{display:false},tooltip:{enabled:false}},
-      scales:{x:{type:"linear",min:0,grid:{color:LINEA},border:{display:false},
-                 ticks:{color:GRIS,font:{size:20,family:FONT},callback:v=>v+" d"},
+      scales:{x:{type:"linear",min:0,max:360,grid:{color:LINEA},border:{display:false},
+                 ticks:{color:GRIS,font:{size:20,family:FONT},stepSize:60,callback:v=>v+" d"},
                  title:{display:true,text:"Plazo (días)",color:GRIS,font:{size:20,family:FONT}}},
               y:{suggestedMin:Math.floor(lo-pad),suggestedMax:Math.ceil(hi+pad),grid:{color:LINEA},border:{display:false},
                  ticks:{color:GRIS,font:{size:20,family:FONT},callback:v=>v+"%"}}}},
