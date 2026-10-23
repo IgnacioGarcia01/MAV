@@ -261,10 +261,10 @@ PAGE = r"""<!doctype html>
 <title>MAV · Tasas por plazo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--accent:#394e8c;--accent2:#9db7da;--err:#a3271f;--total:#8a919c;
-  --s1:#394e8c;--s2:#668ccc;--s3:#6e1caa;--s4:#ba9ae0;--s5:#8059a8;--s6:#12c0d3;--s7:#3b5fe3;--s8:#14998d}
-@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--accent:#6d8ada;--accent2:#33507a;--err:#ff8a80;--total:#7d848e;
-  --s1:#6d8ada;--s2:#0b56cc;--s3:#a181c6;--s4:#6e4f90;--s5:#a64df0;--s6:#26a4b3;--s7:#425da8;--s8:#059488}}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14171c;--muted:#5d6673;--line:#e3e6eb;--accent:#364f8c;--accent2:#9db7da;--err:#a3271f;--total:#8a919c;
+  --s1:#364f8c;--s2:#ba67ef;--s3:#096338;--s4:#507fbb;--s5:#38c4a6;--s6:#8439c3;--s7:#91a8ee;--s8:#1d9363}
+@media (prefers-color-scheme:dark){:root{--bg:#121417;--card:#1b1e23;--ink:#e8eaed;--muted:#9aa3ad;--line:#2c3138;--accent:#5f96d0;--accent2:#33507a;--err:#ff8a80;--total:#7d848e;
+  --s1:#5f96d0;--s2:#6e36c7;--s3:#2f9211;--s4:#5c72be;--s5:#28a872;--s6:#7a4b85;--s7:#0f6ffc;--s8:#357039}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 header{padding:18px 24px 6px}h1{font-size:19px;margin:0}header p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
 main{padding:12px 24px 32px;max-width:1200px}

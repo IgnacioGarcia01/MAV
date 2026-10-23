@@ -233,9 +233,9 @@ canvas#c{width:100%;height:auto;display:block;border:1px solid var(--line);borde
 const D=__DATA__;
 // La imagen siempre sale en modo claro (es para compartir), aunque la app esté en oscuro.
 const NAVY="#002b55",INK="#14171c",GRIS="#6b7480",GRIS_CLARO="#c3c8cf",LINEA="#e6e9ee";
-// Paleta Rosental (azules, índigos, violetas y verdes azulados), validada para daltonismo:
-// 8 colores fijos; el color sigue a la SGR, no a su posición en pantalla.
-const PALETA=["#394e8c","#668ccc","#6e1caa","#ba9ae0","#8059a8","#12c0d3","#3b5fe3","#14998d"];
+// Paleta Rosental ampliada (azules, violetas y verdes), validada para daltonismo entre todos los
+// pares: 8 colores fijos; el color sigue a la SGR, no a su posición en pantalla.
+const PALETA=["#364f8c","#ba67ef","#096338","#507fbb","#38c4a6","#8439c3","#91a8ee","#1d9363"];
 const FONT='"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif';
 const W=1600,PAD=72,ANCHO=W-2*PAD;
 const pct=v=>v==null?"–":v.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";
@@ -265,7 +265,7 @@ function grafico(w,h,visibles,puntos,etiq){ // Chart.js en un canvas aparte, sin
     const f=logFit(pts),x0=Math.min(...pts.map(p=>p.x)),x1=Math.max(...pts.map(p=>p.x));
     const line=f?Array.from({length:100},(_,i)=>{const x=x0+(x1-x0)*i/99;return{x,y:f(x)}}):[];
     ys.push(...pts.map(p=>p.y),...line.map(p=>p.y));
-    ds.push({type:"line",data:line,borderColor:s.color,borderWidth:s.promedio?3.5:3,borderDash:s.dash,pointRadius:0,tension:0,fill:false});
+    ds.push({type:"line",data:line,borderColor:s.color,borderWidth:4,borderDash:s.dash,pointRadius:0,tension:0,fill:false});
     // con un solo tramo no hay curva: se muestra el punto aunque los puntos estén apagados
     if(puntos||!f){ds.push({type:"scatter",data:pts,backgroundColor:s.color,borderColor:"#fff",borderWidth:2.5,pointRadius:9});}
     if(etiq)pts.forEach(p=>marcas.push({p,color:s.color}));

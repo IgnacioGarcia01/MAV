@@ -89,12 +89,11 @@ Observaciones:
 
 ## Paleta Rosental (gráficos, desde 22/10/2026)
 - Marca: azul #012060 (logo, Pantone 2767 C); tintes del manual #33477c, #67739d, #a6abc9, #d6d9e8.
-- Categórica de 8 (validada con dataviz/validate_palette.js; vecinos ΔE ≥ 19 claro / ≥ 15 oscuro):
-  claro  #394e8c, #668ccc, #6e1caa, #ba9ae0, #8059a8, #12c0d3, #3b5fe3, #14998d
-  oscuro #6d8ada, #0b56cc, #a181c6, #6e4f90, #a64df0, #26a4b3, #425da8, #059488 (mismo tono por posición)
-- En 8 colores solo-azules no hay forma de que todos los pares se distingan (todos-contra-todos ≈ 12,5):
-  por eso entran índigos, violetas y verdes azulados. Promedios en líneas discontinuas (marino y gris).
-- Resumen: ECHEQ #394e8c, pagarés USD #14998d.
+- Categórica de 8, ampliada el 23/10/2026 (tonos de verde agua a ciruela, sin rosados) para que se distingan
+  TODOS los pares, no solo los vecinos (validate_palette.js --pairs all: normal ≥ 15, daltonismo ≥ 8,7):
+  claro  #364f8c, #ba67ef, #096338, #507fbb, #38c4a6, #8439c3, #91a8ee, #1d9363
+  oscuro #5f96d0, #6e36c7, #2f9211, #5c72be, #28a872, #7a4b85, #0f6ffc, #357039 (vecinos pasan; todos ≈ 9,8)
+- Promedios en líneas discontinuas (marino y gris). Resumen: ECHEQ #364f8c, pagarés USD #1d9363.
 
 ## Reglas
 - Nunca commitear credenciales. Se leen de `.env` (en .gitignore) o variables de entorno.
